@@ -5181,9 +5181,6 @@
 					$reply['content'] .= "<input type=\"checkbox\" onclick=\"tSR(this)\"
 							id=\"RCHK-$id\">";
 
-					$reply['content'] .= "$marked_pic";
-					$reply['content'] .= "$published_pic";
-
 					$reply['content'] .= "</div>";
 
 					$reply['content'] .= "<div onclick='return hlClicked(event, $id)'
@@ -5273,9 +5270,6 @@
 					$reply['content'] .= "<input type=\"checkbox\" onclick=\"toggleSelectRowById(this,
 							'RROW-$id')\" id=\"RCHK-$id\"/>";
 
-					$reply['content'] .= "$marked_pic";
-					$reply['content'] .= "$published_pic";
-					//$reply['content'] .= "<a href=\"#test\" target=\"_blank\">aa</a>";
 					$reply['content'] .= "<a target=\"_blank\" href=\"".
                                          htmlspecialchars($line["link"]).
                                          "\"><img src=\"images/external_link.gif\" class=\"externalLink\"/></a>";
@@ -5424,6 +5418,9 @@
 					if ($entry_comments) $reply['content'] .= "&nbsp;($entry_comments)";
 
 					$reply['content'] .= "<div style=\"float : right\">";
+
+                    $reply['content'] .= "$marked_pic";
+                    $reply['content'] .= "$published_pic";
 
 					$reply['content'] .= "<img src=\"images/art-zoom.png\"
 						onclick=\"zoomToArticle(event, $id)\"
