@@ -4,6 +4,10 @@
 	// 1) templates/register_notice.txt - displayed above the registration form
 	// 2) register_expire_do.php - contains user expiration queries when necessary
 
+	set_include_path(get_include_path() . PATH_SEPARATOR . "include");
+
+	require_once 'lib/phpmailer/class.phpmailer.php';
+
 	$action = $_REQUEST["action"];
 
 	require_once "functions.php";
@@ -91,7 +95,7 @@
 <title>Create new account</title>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 <link rel="stylesheet" type="text/css" href="utility.css">
-<script type="text/javascript" src="functions.js"></script>
+<script type="text/javascript" src="js/functions.js"></script>
 <script type="text/javascript" src="lib/prototype.js"></script>
 <script type="text/javascript" src="lib/scriptaculous/scriptaculous.js?load=effects,dragdrop,controls"></script>
 </head>
@@ -230,7 +234,7 @@
 	</table>
 	</form>
 
-	<?php print "<p><form method=\"GET\" action=\"tt-rss.php\">
+	<?php print "<p><form method=\"GET\" action=\"index.php\">
 				<input type=\"submit\" value=\"".__("Return to Tiny Tiny RSS")."\">
 				</form>"; ?>
 
@@ -243,7 +247,7 @@
 
 		if (!$login || !$email || !$test) {
 			print_error(__("Your registration information is incomplete."));
-			print "<p><form method=\"GET\" action=\"tt-rss.php\">
+			print "<p><form method=\"GET\" action=\"index.php\">
 				<input type=\"submit\" value=\"".__("Return to Tiny Tiny RSS")."\">
 				</form>";
 			return;
@@ -258,7 +262,7 @@
 
 			if ($is_registered) {
 				print_error(__('Sorry, this username is already taken.'));
-				print "<p><form method=\"GET\" action=\"tt-rss.php\">
+				print "<p><form method=\"GET\" action=\"index.php\">
 				<input type=\"submit\" value=\"".__("Return to Tiny Tiny RSS")."\">
 				</form>";
 			} else {
@@ -276,7 +280,7 @@
 
 				if (db_num_rows($result) != 1) {
 					print_error(__('Registration failed.'));
-					print "<p><form method=\"GET\" action=\"tt-rss.php\">
+					print "<p><form method=\"GET\" action=\"index.php\">
 					<input type=\"submit\" value=\"".__("Return to Tiny Tiny RSS")."\">
 					</form>";
 				} else {
@@ -361,7 +365,7 @@
 
 					print_notice(__("Account created successfully."));
 
-					print "<p><form method=\"GET\" action=\"tt-rss.php\">
+					print "<p><form method=\"GET\" action=\"index.php\">
 					<input type=\"submit\" value=\"".__("Return to Tiny Tiny RSS")."\">
 					</form>";
 
@@ -371,7 +375,7 @@
 
 			} else {
 				print_error('Plese check the form again, you have failed the robot test.');
-				print "<p><form method=\"GET\" action=\"tt-rss.php\">
+				print "<p><form method=\"GET\" action=\"index.php\">
 				<input type=\"submit\" value=\"".__("Return to Tiny Tiny RSS")."\">
 				</form>";
 
@@ -383,7 +387,7 @@
 
 	<?php print_notice(__('New user registrations are currently closed.')) ?>
 
-	<?php print "<p><form method=\"GET\" action=\"tt-rss.php\">
+	<?php print "<p><form method=\"GET\" action=\"index.php\">
 				<input type=\"submit\" value=\"".__("Return to Tiny Tiny RSS")."\">
 				</form>"; ?>
 

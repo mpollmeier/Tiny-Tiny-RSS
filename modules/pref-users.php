@@ -83,7 +83,7 @@
 
 				print "<li class=\"$row_class\">$feed_icon&nbsp;<a href=\"".$line["site_url"]."\">".$line["title"]."</a></li>";
 
-				$row_class = toggleEvenOdd($row_class);
+				$row_class = $row_class == "even" ? "odd" : "even";
 
 			}
 
@@ -284,6 +284,8 @@
 
 				$status_msg = format_notice(T_sprintf("Changed password of user <b>%s</b>
 					 to <b>%s</b>", $login, $tmp_user_pwd));
+
+				require_once 'lib/phpmailer/class.phpmailer.php';
 
 				if ($email) {
 					$status_msg += format_notice(T_sprintf("Notifying <b>%s</b>.", $email));
