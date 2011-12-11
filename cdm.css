@@ -60,7 +60,7 @@ div.cdmContentInner img {
 }
 
 div.cdmFooter {
-	background : #f9f9f9;
+	background : #ECF4FF;
 	padding : 5px;
 	font-weight : normal;
 	color : gray;
@@ -68,7 +68,7 @@ div.cdmFooter {
 }
 
 .Selected div.cdmFooter {
-	background-color : #FFF2BF;
+	background-color : #CFE5FA;
 }
 
 span.cdmExcerpt {

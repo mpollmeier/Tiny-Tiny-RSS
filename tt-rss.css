@@ -180,10 +180,6 @@ a:hover {
 	cursor : pointer;
 }
 
-.Selected, .Selected td {
-	background-color : #fff7d5;
-}
-
 .even.Unread.Selected, .even.Unread.Selected td {
 	background-color : #fff7d5;
 	font-weight : bold;
@@ -201,18 +197,14 @@ a:hover {
 }
 
 .even.Selected, .even.Selected td {
-	background-color : #fff7d5;
 	border-width : 0px 0px 1px 0px;
 	border-style : solid;
-	border-color : #e7d796;
 	border-collapse : collapse;
 }
 
 .odd.Selected, .odd.Selected td {
-	background-color : #fff7d5;
 	border-width : 0px 0px 1px 0px;
 	border-style : solid;
-	border-color : #e7d796;
 	border-collapse : collapse;
 }
 
