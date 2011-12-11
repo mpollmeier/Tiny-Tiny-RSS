@@ -5275,6 +5275,10 @@
 
 					$reply['content'] .= "$marked_pic";
 					$reply['content'] .= "$published_pic";
+					//$reply['content'] .= "<a href=\"#test\" target=\"_blank\">aa</a>";
+					$reply['content'] .= "<a target=\"_blank\" href=\"".
+                                         htmlspecialchars($line["link"]).
+                                         "\"><img src=\"images/external_link.gif\" class=\"externalLink\"/></a>";
 
 					$reply['content'] .= "</div>";
 
