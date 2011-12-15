@@ -1,3 +1,15 @@
+Style Fork
+=============
+
+This is a fork of the official Tiny Tiny RSS with some design alterations that reflect 
+my personal taste and usability needs. It's not necessarily the best for everybody, 
+but I've tried to clean up the UI a bit. Might be worth giving it a try for other people, so I'm sharing it here. 
+Changes to the official TTRSS:
+    * added a 'one click to article' shortlink in article description
+    * moved the 'star' and 'add to feed' icons from the article header to the footer
+    * don't show article excerpt in headline
+    * reduced the number of colors used
+    
 Tiny Tiny RSS
 =============
 
@@ -34,3 +46,4 @@ Contact
 =======
 
 Send your questions, comments, patches to Andrew Dolgov <cthulhoo(at)gmail.com>
+Contact for this fork: Michael Pollmeier <michael(at)michaelpollmeier.com>
