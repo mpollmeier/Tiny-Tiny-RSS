@@ -5267,7 +5267,8 @@
 
 					$reply['content'] .= "<a target=\"_blank\" href=\"".
                                          htmlspecialchars($line["link"]).
-                                         "\"><img src=\"images/external_link.gif\" class=\"externalLink\"/></a>";
+                                         "\" onclick=\"toggleUnread($id, 0, true);\">".
+                                         "<img src=\"images/external_link.gif\" class=\"externalLink\"/></a>";
 
 					$reply['content'] .= "</div>";
 
