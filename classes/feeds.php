@@ -461,6 +461,10 @@ class Feeds extends Protected_Handler {
 
 					$reply['content'] .= "<input type=\"checkbox\" onclick=\"tSR(this)\"
 							id=\"RCHK-$id\">";
+					
+					$reply['content'] .= "<a target=\"_blank\" href=\"".
+                                         htmlspecialchars($line["link"]).
+                                         "\"><img src=\"images/external_link.gif\" class=\"externalLink\"/></a>";
 
 					$reply['content'] .= "$marked_pic";
 					$reply['content'] .= "$published_pic";
@@ -554,6 +558,10 @@ class Feeds extends Protected_Handler {
 					$reply['content'] .= "<input type=\"checkbox\" onclick=\"toggleSelectRowById(this,
 							'RROW-$id')\" id=\"RCHK-$id\"/>";
 
+					$reply['content'] .= "<a target=\"_blank\" href=\"".
+                                         htmlspecialchars($line["link"]).
+                                         "\"><img src=\"images/external_link.gif\" class=\"externalLink\"/></a>";
+                                         
 					$reply['content'] .= "$marked_pic";
 					$reply['content'] .= "$published_pic";
 
