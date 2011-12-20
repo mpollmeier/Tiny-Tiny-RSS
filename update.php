@@ -1,12 +1,14 @@
 #!/usr/bin/php
 <?php
-	set_include_path(get_include_path() . PATH_SEPARATOR . "include");
+	set_include_path(get_include_path() . PATH_SEPARATOR . 
+		dirname(__FILE__) . "/include");
 
 	define('DISABLE_SESSIONS', true);
 
 	chdir(dirname(__FILE__));
 
 	require_once "functions.php";
+	require_once "rssfuncs.php";
 	require_once "sanity_check.php";
 	require_once "config.php";
 	require_once "db.php";
@@ -46,14 +48,6 @@
 
 	// Create a database connection.
 	$link = db_connect(DB_HOST, DB_USER, DB_PASS, DB_NAME);
-
-	if (!$link) {
-		if (DB_TYPE == "mysql") {
-			print mysql_error();
-		}
-		// PG seems to display its own errors just fine by default.
-		return;
-	}
 
 	init_connection($link);
 
