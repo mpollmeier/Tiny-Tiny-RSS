@@ -1,5 +1,6 @@
 <?php
-	set_include_path(get_include_path() . PATH_SEPARATOR . "include");
+	set_include_path(get_include_path() . PATH_SEPARATOR . 
+		dirname(__FILE__) . "/include");
 
 	require_once "functions.php";
 	require_once "sessions.php";
@@ -11,7 +12,7 @@
 
 	$link = db_connect(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 
-	init_connection($link);
+	if (!init_connection($link)) return;
 	login_sequence($link);
 
 	$owner_uid = $_SESSION["uid"];

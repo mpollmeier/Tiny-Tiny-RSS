@@ -1,6 +1,7 @@
 #!/usr/bin/php
 <?php
-	set_include_path(get_include_path() . PATH_SEPARATOR . "include");
+	set_include_path(get_include_path() . PATH_SEPARATOR . 
+		dirname(__FILE__) . "/include");
 
 	// This is an experimental multiprocess update daemon.
 	// Some configurable variable may be found below.
@@ -32,6 +33,7 @@
 	require_once "db.php";
 	require_once "db-prefs.php";
 	require_once "functions.php";
+	require_once "rssfuncs.php";
 	require_once "lib/magpierss/rss_fetch.inc";
 
 	$children = array();
@@ -133,13 +135,7 @@
 	// It is unnecessary to start the fork loop if database is not ok.
 	$link = db_connect(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 
-	if (!$link) {
-		if (DB_TYPE == "mysql") {
-			print mysql_error();
-		}
-		// PG seems to display its own errors just fine by default.
-		return;
-	}
+	if (!init_connection($link)) return;
 
 	db_close($link);
 
@@ -190,15 +186,7 @@
 
 					$link = db_connect(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 
-					if (!$link) {
-						if (DB_TYPE == "mysql") {
-							print mysql_error();
-						}
-						// PG seems to display its own errors just fine by default.
-						return;
-					}
-
-					init_connection($link);
+					if (!init_connection($link)) return;
 
 					// We disable stamp file, since it is of no use in a multiprocess update.
 					// not really, tho for the time being -fox

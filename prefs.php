@@ -1,5 +1,6 @@
 <?php
-	set_include_path(get_include_path() . PATH_SEPARATOR . "include");
+	set_include_path(get_include_path() . PATH_SEPARATOR . 
+		dirname(__FILE__) . "/include");
 
 	require_once "functions.php";
 	require_once "sessions.php";
@@ -10,7 +11,7 @@
 
 	$link = db_connect(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 
-	init_connection($link);
+	if (!init_connection($link)) return;
 
 	login_sequence($link);
 
@@ -72,14 +73,12 @@
 	</div>
 </div>
 
-<div id="hotkey_help_overlay" style="display : none" onclick="Element.hide(this)">
-	<?php include "help/4.php" ?>
-</div>
+<div id="hotkey_help_overlay" style="display : none" onclick="Element.hide(this)"></div>
 
 <img id="piggie" src="images/piggie.png" style="display : none" alt="piggie"/>
 
 <div id="header" dojoType="dijit.layout.ContentPane" region="top">
-	<a href='#' onclick="Effect.Appear('hotkey_help_overlay', {duration: 0.3})"><?php echo __("Keyboard shortcuts") ?></a> |
+	<a href='#' onclick="showHelp()"><?php echo __("Keyboard shortcuts") ?></a> |
 	<a href="#" onclick="gotoMain()"><?php echo __('Exit preferences') ?></a>
 </div>
 

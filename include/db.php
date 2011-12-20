@@ -22,7 +22,7 @@ function db_connect($host, $user, $pass, $db) {
 		$link = pg_connect($string);
 
 		if (!$link) {
-			die("Connection failed: " . pg_last_error($link));
+			die("Unable to connect to database (as $user to $host, database $db):" . pg_last_error());
 		}
 
 		return $link;
@@ -36,7 +36,7 @@ function db_connect($host, $user, $pass, $db) {
 			}
 			return $link;
 		} else {
-			die("Connection failed: " . mysql_error($link));
+			die("Unable to connect to database (as $user to $host, database $db): " . mysql_error());
 		}
 	}
 }
@@ -53,7 +53,7 @@ function db_escape_string($s, $strip_tags = true) {
 
 function db_query($link, $query, $die_on_error = true) {
 	//if ($_REQUEST["qlog"])
-	//	error_log($_SESSION["uid"] . ":" . $_REQUEST["op"] . "/" . $_REQUEST["subop"] .
+	//	error_log($_SESSION["uid"] . ":" . $_REQUEST["op"] . "/" . $_REQUEST["method"] .
 	//		" $query\n", 3, "/tmp/ttrss-query.log");
 
 	if (DB_TYPE == "pgsql") {
@@ -61,7 +61,7 @@ function db_query($link, $query, $die_on_error = true) {
 		if (!$result) {
 			$query = htmlspecialchars($query); // just in case
 			if ($die_on_error) {
-				die("Query <i>$query</i> failed [$result]: " . pg_last_error($link));
+				die("Query <i>$query</i> failed [$result]: " . ($link ? pg_last_error($link) : "No connection"));
 			}
 		}
 		return $result;
@@ -70,7 +70,7 @@ function db_query($link, $query, $die_on_error = true) {
 		if (!$result) {
 			$query = htmlspecialchars($query);
 			if ($die_on_error) {
-				die("Query <i>$query</i> failed: " . mysql_error($link));
+				die("Query <i>$query</i> failed: " . ($link ? mysql_error($link) : "No connection"));
 			}
 		}
 		return $result;

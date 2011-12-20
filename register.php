@@ -4,7 +4,8 @@
 	// 1) templates/register_notice.txt - displayed above the registration form
 	// 2) register_expire_do.php - contains user expiration queries when necessary
 
-	set_include_path(get_include_path() . PATH_SEPARATOR . "include");
+	set_include_path(get_include_path() . PATH_SEPARATOR . 
+		dirname(__FILE__) . "/include");
 
 	require_once 'lib/phpmailer/class.phpmailer.php';
 
@@ -18,7 +19,7 @@
 
 	$link = db_connect(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 
-	init_connection($link);
+	if (!init_connection($link)) return;
 
 	if ($_REQUEST["format"] == "feed") {
 		header("Content-Type: text/xml");
@@ -311,15 +312,15 @@
 
 					$mail->CharSet = "UTF-8";
 
-					$mail->From = DIGEST_FROM_ADDRESS;
-					$mail->FromName = DIGEST_FROM_NAME;
+					$mail->From = SMTP_FROM_ADDRESS;
+					$mail->FromName = SMTP_FROM_NAME;
 					$mail->AddAddress($email);
 
-					if (DIGEST_SMTP_HOST) {
-						$mail->Host = DIGEST_SMTP_HOST;
+					if (SMTP_HOST) {
+						$mail->Host = SMTP_HOST;
 						$mail->Mailer = "smtp";
-						$mail->Username = DIGEST_SMTP_LOGIN;
-						$mail->Password = DIGEST_SMTP_PASSWORD;
+						$mail->Username = SMTP_LOGIN;
+						$mail->Password = SMTP_PASSWORD;
 					}
 
 			//		$mail->IsHTML(true);
@@ -345,15 +346,15 @@
 
 					$mail->CharSet = "UTF-8";
 
-					$mail->From = DIGEST_FROM_ADDRESS;
-					$mail->FromName = DIGEST_FROM_NAME;
+					$mail->From = SMTP_FROM_ADDRESS;
+					$mail->FromName = SMTP_FROM_NAME;
 					$mail->AddAddress(REG_NOTIFY_ADDRESS);
 
-					if (DIGEST_SMTP_HOST) {
-						$mail->Host = DIGEST_SMTP_HOST;
+					if (SMTP_HOST) {
+						$mail->Host = SMTP_HOST;
 						$mail->Mailer = "smtp";
-						$mail->Username = DIGEST_SMTP_LOGIN;
-						$mail->Password = DIGEST_SMTP_PASSWORD;
+						$mail->Username = SMTP_LOGIN;
+						$mail->Password = SMTP_PASSWORD;
 					}
 
 			//		$mail->IsHTML(true);

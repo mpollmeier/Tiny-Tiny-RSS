@@ -1,5 +1,12 @@
 <?php
-	set_include_path(get_include_path() . PATH_SEPARATOR . "include");
+	if (!file_exists("config.php")) {
+		print "<b>Fatal Error</b>: You forgot to copy
+		<b>config.php-dist</b> to <b>config.php</b> and edit it.\n";
+		exit;
+	}
+
+	set_include_path(get_include_path() . PATH_SEPARATOR . 
+		dirname(__FILE__) ."/include");
 
 	require_once "functions.php";
 	require_once "sessions.php";
@@ -10,7 +17,7 @@
 
 	$link = db_connect(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 
-	init_connection($link);
+	if (!init_connection($link)) return;
 
 	login_sequence($link);
 
@@ -91,9 +98,7 @@
 		alt="new_version_icon"/>
 </div>
 
-<div id="hotkey_help_overlay" style="display : none" onclick="Element.hide(this)">
-	<?php include "help/3.php" ?>
-</div>
+<div id="hotkey_help_overlay" style="display : none" onclick="Element.hide(this)"></div>
 
 <div id="notify" class="notify"><span id="notify_body">&nbsp;</span></div>
 <div id="cmdline" style="display : none"></div>
@@ -175,7 +180,6 @@
 					<div dojoType="dijit.MenuItem" onclick="quickMenuGo('qmcAddLabel')"><?php echo __('Create label...') ?></div>
 					<div dojoType="dijit.MenuItem" onclick="quickMenuGo('qmcAddFilter')"><?php echo __('Create filter...') ?></div>
 					<div dojoType="dijit.MenuItem" onclick="quickMenuGo('qmcHKhelp')"><?php echo __('Keyboard shortcuts help') ?></div>
-					<div dojoType="dijit.MenuItem" onclick="quickMenuGo('qmcAbout')"><?php echo __('About...') ?></div>
 				</div>
 			</div>
 		</div>
