@@ -561,9 +561,6 @@ class Feeds extends Protected_Handler {
 					$reply['content'] .= "<a target=\"_blank\" href=\"".
                                          htmlspecialchars($line["link"]).
                                          "\"><img src=\"images/external_link.gif\" class=\"externalLink\"/></a>";
-                                         
-					$reply['content'] .= "$marked_pic";
-					$reply['content'] .= "$published_pic";
 
 					$reply['content'] .= "</div>";
 
@@ -717,6 +714,9 @@ class Feeds extends Protected_Handler {
 						title='".__('Open article in new tab')."'>";
 
 					//$note_escaped = htmlspecialchars($line['note'], ENT_QUOTES);
+
+					$reply['content'] .= "$marked_pic";
+					$reply['content'] .= "$published_pic";
 
 					$reply['content'] .= "<img src=\"images/art-pub-note.png\"
 						style=\"cursor : pointer\" style=\"cursor : pointer\"
