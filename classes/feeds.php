@@ -463,8 +463,11 @@ class Feeds extends Protected_Handler {
 							id=\"RCHK-$id\">";
 					
 					$reply['content'] .= "<a target=\"_blank\" href=\"".
-                                         htmlspecialchars($line["link"]).
-                                         "\"><img src=\"images/external_link.gif\" class=\"externalLink\"/></a>";
+                                          htmlspecialchars($line["link"]).
+                                         "\" onclick=\"toggleUnread($id, 0, true);\">".
+                                         "<img src=\"images/externa_link.gif\" class=\"externalLink\"/></a>";
+
+
 
 					$reply['content'] .= "$marked_pic";
 					$reply['content'] .= "$published_pic";
@@ -559,8 +562,10 @@ class Feeds extends Protected_Handler {
 							'RROW-$id')\" id=\"RCHK-$id\"/>";
 
 					$reply['content'] .= "<a target=\"_blank\" href=\"".
-                                         htmlspecialchars($line["link"]).
-                                         "\"><img src=\"images/external_link.gif\" class=\"externalLink\"/></a>";
+                                          htmlspecialchars($line["link"]).
+                                         "\" onclick=\"toggleUnread($id, 0, true);\">".
+                                         "<img src=\"images/external_link.gif\" class=\"externalLink\"/></a>";
+
 
 					$reply['content'] .= "</div>";
 
