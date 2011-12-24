@@ -68,7 +68,43 @@ class Feeds extends Protected_Handler {
 		$tog_marked_link = "selectionToggleMarked()";
 		$tog_published_link = "selectionTogglePublished()";
 
-		$reply = "<div id=\"subtoolbar_main\">";
+		if ($is_cat) $cat_q = "&is_cat=$is_cat";
+
+		if ($search) {
+			$search_q = "&q=$search&m=$match_on&smode=$search_mode";
+		} else {
+			$search_q = "";
+		}
+
+		$rss_link = htmlspecialchars(get_self_url_prefix() .
+			"/public.php?op=rss&id=$feed_id$cat_q$search_q");
+
+		// right part
+
+		$reply .= "<span class='r'>";
+
+		if ($feed_site_url) {
+			$target = "target=\"_blank\"";
+			$reply .= "<a title=\"".__("Visit the website")."\" $target href=\"$feed_site_url\">".
+				truncate_string($feed_title,30)."</a>";
+
+			if ($error) {
+				$reply .= " (<span class=\"error\" title=\"$error\">Error</span>)";
+			}
+
+		} else {
+			$reply .= $feed_title;
+		}
+
+		$reply .= "
+			<a href=\"#\"
+				title=\"".__("View as RSS feed")."\"
+				onclick=\"displayDlg('generatedFeed', '$feed_id:$is_cat:$rss_link')\">
+				<img class=\"noborder\" style=\"vertical-align : middle\" src=\"images/feed-icon-12x12.png\"></a>";
+
+		$reply .= "</span>";
+
+		// left part
 
 		$reply .= __('Select:')."
 			<a href=\"#\" onclick=\"$sel_all_link\">".__('All')."</a>,
@@ -103,17 +139,6 @@ class Feeds extends Protected_Handler {
 		$reply .= "<option value=\"emailArticle(false)\">".__('Forward by email').
 			"</option>";
 
-		if ($is_cat) $cat_q = "&is_cat=$is_cat";
-
-		if ($search) {
-			$search_q = "&q=$search&m=$match_on&smode=$search_mode";
-		} else {
-			$search_q = "";
-		}
-
-		$rss_link = htmlspecialchars(get_self_url_prefix() .
-			"/public.php?op=rss&id=$feed_id$cat_q$search_q");
-
 		$reply .= "<option value=\"0\" disabled=\"1\">".__('Feed:')."</option>";
 
 		$reply .= "<option value=\"catchupPage()\">".__('Mark as read')."</option>";
@@ -122,50 +147,9 @@ class Feeds extends Protected_Handler {
 
 		$reply .= "</select>";
 
-		$reply .= "</div>";
+		//$reply .= "</div>";
 
-		$reply .= "<div id=\"subtoolbar_ftitle\">";
-
-		if ($feed_site_url) {
-			$target = "target=\"_blank\"";
-			$reply .= "<a title=\"".__("Visit the website")."\" $target href=\"$feed_site_url\">".
-				truncate_string($feed_title,30)."</a>";
-
-			if ($error) {
-				$reply .= " (<span class=\"error\" title=\"$error\">Error</span>)";
-			}
-
-		} else {
-			if ($feed_id < -10) {
-				$label_id = -11-$feed_id;
-
-				$result = db_query($this->link, "SELECT fg_color, bg_color
-					FROM ttrss_labels2 WHERE id = '$label_id' AND owner_uid = " .
-					$_SESSION["uid"]);
-
-				if (db_num_rows($result) != 0) {
-					$fg_color = db_fetch_result($result, 0, "fg_color");
-					$bg_color = db_fetch_result($result, 0, "bg_color");
-
-					$reply .= "<span style=\"background : $bg_color; color : $fg_color\" >";
-					$reply .= $feed_title;
-					$reply .= "</span>";
-				} else {
-					$reply .= $feed_title;
-				}
-
-			} else {
-				$reply .= $feed_title;
-			}
-		}
-
-		$reply .= "
-			<a href=\"#\"
-				title=\"".__("View as RSS feed")."\"
-				onclick=\"displayDlg('generatedFeed', '$feed_id:$is_cat:$rss_link')\">
-				<img class=\"noborder\" style=\"vertical-align : middle\" src=\"images/feed-icon-12x12.png\"></a>";
-
-		$reply .= "</div>";
+		//$reply .= "</h2";
 
 		return $reply;
 	}
@@ -287,6 +271,18 @@ class Feeds extends Protected_Handler {
 //		}
 
 		$headlines_count = db_num_rows($result);
+
+		if (get_pref($this->link, 'COMBINED_DISPLAY_MODE')) {
+			$button_plugins = array();
+			foreach (explode(",", ARTICLE_BUTTON_PLUGINS) as $p) {
+				$pclass = trim("${p}_button");
+
+				if (class_exists($pclass)) {
+					$plugin = new $pclass($link);
+					array_push($button_plugins, $plugin);
+				}
+			}
+		}
 
 		if (db_num_rows($result) > 0) {
 
@@ -723,32 +719,14 @@ class Feeds extends Protected_Handler {
 					$reply['content'] .= "$marked_pic";
 					$reply['content'] .= "$published_pic";
 
-					$reply['content'] .= "<img src=\"images/art-pub-note.png\"
-						style=\"cursor : pointer\" style=\"cursor : pointer\"
-						onclick=\"editArticleNote($id)\"
-						alt='PubNote' title='".__('Edit article note')."'>";
-
-					$reply['content'] .= "<img src=\"".theme_image($this->link, 'images/art-email.png')."\"
-						style=\"cursor : pointer\"
-						onclick=\"emailArticle($id)\"
-						alt='Zoom' title='".__('Forward by email')."'>";
-
-					if (ENABLE_TWEET_BUTTON) {
-						$reply['content'] .= "<img src=\"".theme_image($this->link, 'images/art-tweet.png')."\"
-							class='tagsPic' style=\"cursor : pointer\"
-							onclick=\"tweetArticle($id)\"
-							alt='Zoom' title='".__('Share on Twitter')."'>";
+					foreach ($button_plugins as $p) {
+						$reply['content'] .= $p->render($id, $line);
 					}
-
-					$reply['content'] .= "<img src=\"".theme_image($this->link, 'images/art-share.png')."\"
-						class='tagsPic' style=\"cursor : pointer\"
-						onclick=\"shareArticle(".$line['int_id'].")\"
-						alt='Zoom' title='".__('Share by URL')."'>";
 
 					$reply['content'] .= "<img src=\"images/digest_checkbox.png\"
 						style=\"cursor : pointer\" style=\"cursor : pointer\"
 						onclick=\"dismissArticle($id)\"
-						alt='Dismiss' title='".__('Dismiss article')."'>";
+						title='".__('Close article')."'>";
 
 					$reply['content'] .= "</div>";
 					$reply['content'] .= "</div>";

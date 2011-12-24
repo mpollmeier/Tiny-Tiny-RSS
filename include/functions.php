@@ -3277,34 +3277,21 @@
 						onclick=\"postOpenInNewTab(event, $id)\"
 						alt='Zoom' title='".__('Open article in new tab')."'>";
 
-				//$note_escaped = htmlspecialchars($line['note'], ENT_QUOTES);
+				$button_plugins = explode(",", ARTICLE_BUTTON_PLUGINS);
 
-				$rv['content'] .= "<img src=\"".theme_image($link, 'images/art-pub-note.png')."\"
-						class='tagsPic' style=\"cursor : pointer\"
-						onclick=\"editArticleNote($id)\"
-						alt='PubNote' title='".__('Edit article note')."'>";
+				foreach ($button_plugins as $p) {
+					$pclass = trim("${p}_button");
 
-				$rv['content'] .= "<img src=\"".theme_image($link, 'images/art-email.png')."\"
-					class='tagsPic' style=\"cursor : pointer\"
-					onclick=\"emailArticle($id)\"
-					alt='Zoom' title='".__('Forward by email')."'>";
-
-				if (ENABLE_TWEET_BUTTON) {
-					$rv['content'] .= "<img src=\"".theme_image($link, 'images/art-tweet.png')."\"
-							class='tagsPic' style=\"cursor : pointer\"
-							onclick=\"tweetArticle($id)\"
-							alt='Zoom' title='".__('Share on Twitter')."'>";
+					if (class_exists($pclass)) {
+						$plugin = new $pclass($link);
+						$rv['content'] .= $plugin->render($id, $line);
+					}
 				}
-
-				$rv['content'] .= "<img src=\"".theme_image($link, 'images/art-share.png')."\"
-					class='tagsPic' style=\"cursor : pointer\"
-					onclick=\"shareArticle(".$line['int_id'].")\"
-					alt='Zoom' title='".__('Share by URL')."'>";
 
 				$rv['content'] .= "<img src=\"".theme_image($link, 'images/digest_checkbox.png')."\"
 						class='tagsPic' style=\"cursor : pointer\"
 						onclick=\"closeArticlePanel($id)\"
-						alt='Zoom' title='".__('Close this panel')."'>";
+						title='".__('Close article')."'>";
 
 			} else {
 				$tags_str = strip_tags($tags_str);
