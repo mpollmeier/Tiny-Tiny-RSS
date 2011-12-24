@@ -8,7 +8,7 @@
 	<script type="text/javascript" src="lib/dojo/dojo.js" djConfig="parseOnLoad: true"></script>
 	<script type="text/javascript" src="lib/prototype.js"></script>
 	<script type="text/javascript" src="lib/scriptaculous/scriptaculous.js?load=effects,dragdrop,controls"></script>
-	<script type="text/javascript" src="functions.js"></script>
+	<script type="text/javascript" src="js/functions.js"></script>
 	<script type="text/javascript" charset="utf-8" src="errors.php?mode=js"></script>
 </head>
 
@@ -40,7 +40,7 @@ function fetchProfiles() {
 		var query = "?op=getProfiles&" + params;
 
 		if (query) {
-			new Ajax.Request("backend.php",	{
+			new Ajax.Request("public.php",	{
 				parameters: query,
 					onComplete: function(transport) {
 						if (transport.responseText.match("select")) {

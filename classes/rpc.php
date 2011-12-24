@@ -563,78 +563,6 @@ class RPC extends Protected_Handler {
 		print json_encode(array("message" => "UPDATE_COUNTERS"));
 	}
 
-	function sendEmail() {
-		$secretkey = $_REQUEST['secretkey'];
-
-		require_once 'lib/phpmailer/class.phpmailer.php';
-
-		$reply = array();
-
-		if ($_SESSION['email_secretkey'] &&
-		$secretkey == $_SESSION['email_secretkey']) {
-
-			$_SESSION['email_secretkey'] = '';
-
-			$destination = $_REQUEST['destination'];
-			$subject = $_REQUEST['subject'];
-			$content = $_REQUEST['content'];
-
-			$replyto = strip_tags($_SESSION['email_replyto']);
-			$fromname = strip_tags($_SESSION['email_fromname']);
-
-			$mail = new PHPMailer();
-
-			$mail->PluginDir = "lib/phpmailer/";
-			$mail->SetLanguage("en", "lib/phpmailer/language/");
-
-			$mail->CharSet = "UTF-8";
-
-			$mail->From = $replyto;
-			$mail->FromName = $fromname;
-			$mail->AddAddress($destination);
-
-			if (SMTP_HOST) {
-				$mail->Host = SMTP_HOST;
-				$mail->Mailer = "smtp";
-				$mail->SMTPAuth = SMTP_LOGIN != '';
-				$mail->Username = SMTP_LOGIN;
-				$mail->Password = SMTP_PASSWORD;
-			}
-
-			$mail->IsHTML(false);
-			$mail->Subject = $subject;
-			$mail->Body = $content;
-
-			$rc = $mail->Send();
-
-			if (!$rc) {
-				$reply['error'] =  $mail->ErrorInfo;
-			} else {
-				save_email_address($this->link, db_escape_string($destination));
-				$reply['message'] = "UPDATE_COUNTERS";
-			}
-
-		} else {
-			$reply['error'] = "Not authorized.";
-		}
-
-		print json_encode($reply);
-	}
-
-	function completeEmails() {
-		$search = db_escape_string($_REQUEST["search"]);
-
-		print "<ul>";
-
-		foreach ($_SESSION['stored_emails'] as $email) {
-			if (strpos($email, $search) !== false) {
-				print "<li>$email</li>";
-			}
-		}
-
-		print "</ul>";
-	}
-
 	function quickAddCat() {
 		$cat = db_escape_string($_REQUEST["cat"]);
 
@@ -753,34 +681,16 @@ class RPC extends Protected_Handler {
 		return;
 	}
 
-	function getTweetInfo() {
-		$id = db_escape_string($_REQUEST['id']);
+	function buttonPlugin() {
+		$pclass = basename($_REQUEST['plugin']) . "_button";
+		$method = $_REQUEST['plugin_method'];
 
-		$result = db_query($this->link, "SELECT title, link
-				FROM ttrss_entries, ttrss_user_entries
-				WHERE id = '$id' AND ref_id = id AND owner_uid = " .$_SESSION['uid']);
-
-		if (db_num_rows($result) != 0) {
-			$title = truncate_string(strip_tags(db_fetch_result($result, 0, 'title')),
-				100, '...');
-			$article_link = db_fetch_result($result, 0, 'link');
+		if (class_exists($pclass)) {
+			$plugin = new $pclass($this->link);
+			if (method_exists($plugin, $method)) {
+				return $plugin->$method();
+			}
 		}
-
-		print json_encode(array("title" => $title, "link" => $article_link,
-				"id" => $id));
-	}
-
-	function setNote() {
-		$id = db_escape_string($_REQUEST["id"]);
-		$note = trim(strip_tags(db_escape_string($_REQUEST["note"])));
-
-		db_query($this->link, "UPDATE ttrss_user_entries SET note = '$note'
-			WHERE ref_id = '$id' AND owner_uid = " . $_SESSION["uid"]);
-
-		$formatted_note = format_article_note($id, $note);
-
-		print json_encode(array("note" => $formatted_note,
-				"raw_length" => mb_strlen($note)));
 	}
 
 	function genHash() {

@@ -1498,76 +1498,6 @@ function show_labels_in_headlines(transport) {
 	}
 } */
 
-function emailArticle(id) {
-	try {
-		if (!id) {
-			var ids = getSelectedArticleIds2();
-
-			if (ids.length == 0) {
-				alert(__("No articles are selected."));
-				return;
-			}
-
-			id = ids.toString();
-		}
-
-		if (dijit.byId("emailArticleDlg"))
-			dijit.byId("emailArticleDlg").destroyRecursive();
-
-		var query = "backend.php?op=dlg&method=emailArticle&param=" + param_escape(id);
-
-		dialog = new dijit.Dialog({
-			id: "emailArticleDlg",
-			title: __("Forward article by email"),
-			style: "width: 600px",
-			execute: function() {
-				if (this.validate()) {
-
-					new Ajax.Request("backend.php", {
-						parameters: dojo.objectToQuery(this.attr('value')),
-						onComplete: function(transport) {
-
-							var reply = JSON.parse(transport.responseText);
-
-							var error = reply['error'];
-
-							if (error) {
-								alert(__('Error sending email:') + ' ' + error);
-							} else {
-								notify_info('Your message has been sent.');
-								dialog.hide();
-							}
-
-					} });
-				}
-			},
-			href: query});
-
-		var tmph = dojo.connect(dialog, 'onLoad', function() {
-	   	dojo.disconnect(tmph);
-
-		   new Ajax.Autocompleter('emailArticleDlg_destination', 'emailArticleDlg_dst_choices',
-			   "backend.php?op=rpc&method=completeEmails",
-			   { tokens: '', paramName: "search" });
-		});
-
-		dialog.show();
-
-		/* displayDlg('emailArticle', id,
-		   function () {
-				document.forms['article_email_form'].destination.focus();
-
-			   new Ajax.Autocompleter('destination', 'destination_choices',
-				   "backend.php?op=rpc&method=completeEmails",
-				   { tokens: '', paramName: "search" });
-
-			}); */
-
-	} catch (e) {
-		exception_error("emailArticle", e);
-	}
-}
-
 function dismissArticle(id) {
 	try {
 		var elem = $("RROW-" + id);
@@ -1994,87 +1924,6 @@ function initHeadlinesMenu() {
 	}
 }
 
-function tweetArticle(id) {
-	try {
-		var query = "?op=rpc&method=getTweetInfo&id=" + param_escape(id);
-
-		console.log(query);
-
-		var d = new Date();
-      var ts = d.getTime();
-
-		var w = window.open('backend.php?op=backend&method=loading', 'ttrss_tweet',
-			"status=0,toolbar=0,location=0,width=500,height=400,scrollbars=1,menubar=0");
-
-		new Ajax.Request("backend.php",	{
-			parameters: query,
-			onComplete: function(transport) {
-				var ti = JSON.parse(transport.responseText);
-
-				var share_url = "http://twitter.com/share?_=" + ts +
-					"&text=" + param_escape(ti.title) +
-					"&url=" + param_escape(ti.link);
-
-				w.location.href = share_url;
-
-			} });
-
-
-	} catch (e) {
-		exception_error("tweetArticle", e);
-	}
-}
-
-function editArticleNote(id) {
-	try {
-
-		var query = "backend.php?op=dlg&method=editArticleNote&param=" + param_escape(id);
-
-		if (dijit.byId("editNoteDlg"))
-			dijit.byId("editNoteDlg").destroyRecursive();
-
-		dialog = new dijit.Dialog({
-			id: "editNoteDlg",
-			title: __("Edit article note"),
-			style: "width: 600px",
-			execute: function() {
-				if (this.validate()) {
-					var query = dojo.objectToQuery(this.attr('value'));
-
-					notify_progress("Saving article note...", true);
-
-					new Ajax.Request("backend.php",	{
-					parameters: query,
-					onComplete: function(transport) {
-						notify('');
-						dialog.hide();
-
-						var reply = JSON.parse(transport.responseText);
-
-						cache_delete("article:" + id);
-
-						var elem = $("POSTNOTE-" + id);
-
-						if (elem) {
-							Element.hide(elem);
-							elem.innerHTML = reply.note;
-
-							if (reply.raw_length != 0)
-								new Effect.Appear(elem);
-						}
-
-					}});
-				}
-			},
-			href: query,
-		});
-
-		dialog.show();
-
-	} catch (e) {
-		exception_error("editArticleNote", e);
-	}
-}
 
 function player(elem) {
 	var aid = elem.getAttribute("audio-id");
@@ -2219,26 +2068,6 @@ function precache_headlines() {
 
 	} catch (e) {
 		exception_error("precache_headlines", e);
-	}
-}
-
-function shareArticle(id) {
-	try {
-		if (dijit.byId("shareArticleDlg"))
-			dijit.byId("shareArticleDlg").destroyRecursive();
-
-		var query = "backend.php?op=dlg&method=shareArticle&param=" + param_escape(id);
-
-		dialog = new dijit.Dialog({
-			id: "shareArticleDlg",
-			title: __("Share article by URL"),
-			style: "width: 600px",
-			href: query});
-
-		dialog.show();
-
-	} catch (e) {
-		exception_error("emailArticle", e);
 	}
 }
 
