@@ -76,7 +76,6 @@ span.cdmExcerpt {
 	color : gray;
 	font-weight : normal;
 	cursor : pointer;
-    display: none;
 }
 
 div.cdmContent div.postEnclosures {
