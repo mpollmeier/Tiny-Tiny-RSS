@@ -1,5 +1,12 @@
 <?php
 class Pref_Feeds extends Protected_Handler {
+
+	function csrf_ignore($method) {
+		$csrf_ignored = array("index", "getfeedtree", "add", "editcats", "editfeed");
+
+		return array_search($method, $csrf_ignored) !== false;
+	}
+
 	function batch_edit_cbox($elem, $label = false) {
 		print "<input type=\"checkbox\" title=\"".__("Check to enable field")."\"
 			onchange=\"dijit.byId('feedEditDlg').toggleField(this, '$elem', '$label')\">";
@@ -441,12 +448,10 @@ class Pref_Feeds extends Protected_Handler {
 			$checked = "";
 		}
 
-		if (SIMPLEPIE_CACHE_IMAGES) {
-			print "<hr/><input dojoType=\"dijit.form.CheckBox\" type=\"checkbox\" id=\"cache_images\"
-			name=\"cache_images\"
+		print "<hr/><input dojoType=\"dijit.form.CheckBox\" type=\"checkbox\" id=\"cache_images\"
+		name=\"cache_images\"
 			$checked>&nbsp;<label for=\"cache_images\">".
-			__('Cache images locally (SimplePie only)')."</label>";
-		}
+		__('Cache images locally')."</label>";
 
 		$mark_unread_on_update = sql_bool_to_bool(db_fetch_result($result, 0, "mark_unread_on_update"));
 
@@ -648,16 +653,13 @@ class Pref_Feeds extends Protected_Handler {
 
 		print "&nbsp;"; $this->batch_edit_cbox("always_display_enclosures", "always_display_enclosures_l");
 
-		if (SIMPLEPIE_CACHE_IMAGES) {
-			print "<br/><input disabled=\"1\" type=\"checkbox\" id=\"cache_images\"
-				name=\"cache_images\"
-				dojoType=\"dijit.form.CheckBox\">&nbsp;<label class='insensitive' id=\"cache_images_l\"
-				for=\"cache_images\">".
-			__('Cache images locally')."</label>";
+		print "<br/><input disabled=\"1\" type=\"checkbox\" id=\"cache_images\"
+			name=\"cache_images\"
+			dojoType=\"dijit.form.CheckBox\">&nbsp;<label class='insensitive' id=\"cache_images_l\"
+			for=\"cache_images\">".
+		__('Cache images locally')."</label>";
 
-
-			print "&nbsp;"; $this->batch_edit_cbox("cache_images", "cache_images_l");
-		}
+		print "&nbsp;"; $this->batch_edit_cbox("cache_images", "cache_images_l");
 
 		print "<br/><input disabled=\"1\" type=\"checkbox\" id=\"mark_unread_on_update\"
 			name=\"mark_unread_on_update\"
@@ -734,11 +736,7 @@ class Pref_Feeds extends Protected_Handler {
 			$category_qpart_nocomma = "";
 		}
 
-		if (SIMPLEPIE_CACHE_IMAGES) {
-			$cache_images_qpart = "cache_images = $cache_images,";
-		} else {
-			$cache_images_qpart = "";
-		}
+		$cache_images_qpart = "cache_images = $cache_images,";
 
 		if (!$batch) {
 
@@ -1400,47 +1398,68 @@ class Pref_Feeds extends Protected_Handler {
 
 		print "</div>"; # feeds pane
 
-		print "<div dojoType=\"dijit.layout.AccordionPane\" title=\"".__('OPML')."\">";
+		print "<div dojoType=\"dijit.layout.AccordionPane\" title=\"".__('Import and export')."\">";
 
-		print "<p>" . __("Using OPML you can export and import your feeds and Tiny Tiny RSS settings.") . " ";
+		print "<h3>" . __("OPML") . "</h3>";
 
-		print "<span class=\"insensitive\">" . __("Note: Only main settings profile can be migrated using OPML.") . "</span>";
+		print "<p>" . __("Using OPML you can export and import your feeds, filters, labels and Tiny Tiny RSS settings.") . " ";
 
-		print "</p>";
+		print __("Only main settings profile can be migrated using OPML.") . "</p>";
 
-		print "<h3>" . __("Import") . "</h3>";
-
-		print "<br/><iframe id=\"upload_iframe\"
+		print "<iframe id=\"upload_iframe\"
 			name=\"upload_iframe\" onload=\"opmlImportComplete(this)\"
 			style=\"width: 400px; height: 100px; display: none;\"></iframe>";
 
 		print "<form  name=\"opml_form\" style='display : block' target=\"upload_iframe\"
 			enctype=\"multipart/form-data\" method=\"POST\"
-				action=\"backend.php\">
+			action=\"backend.php\">
 			<input id=\"opml_file\" name=\"opml_file\" type=\"file\">&nbsp;
 			<input type=\"hidden\" name=\"op\" value=\"dlg\">
 			<input type=\"hidden\" name=\"method\" value=\"importOpml\">
 			<button dojoType=\"dijit.form.Button\" onclick=\"return opmlImport();\" type=\"submit\">" .
-			__('Import') . "</button>";
+			__('Import my OPML') . "</button>";
 
-		print "<h3>" . __("Export") . "</h3>";
+		print "<hr>";
 
 		print "<p>" . __('Filename:') .
             " <input type=\"text\" id=\"filename\" value=\"TinyTinyRSS.opml\" />&nbsp;" .
-            __('Include settings') . "<input type=\"checkbox\" id=\"settings\" CHECKED />" .
+				__('Include settings') . "<input type=\"checkbox\" id=\"settings\" checked=\"1\"/>";
 
-			"<button dojoType=\"dijit.form.Button\"
+		print "</p><button dojoType=\"dijit.form.Button\"
 			onclick=\"gotoExportOpml(document.opml_form.filename.value, document.opml_form.settings.checked)\" >" .
-              __('Export') . "</button></p></form>";
+              __('Export OPML') . "</button></p></form>";
 
-		print "<h3>" . __("Publish") . "</h3>";
+		print "<hr>";
 
 		print "<p>".__('Your OPML can be published publicly and can be subscribed by anyone who knows the URL below.') . " ";
 
-		print "<span class=\"insensitive\">" . __("Note: Published OPML does not include your Tiny Tiny RSS settings, feeds that require authentication or feeds hidden from Popular feeds.") . 			"</span>" . "</p>";
+		print __("Published OPML does not include your Tiny Tiny RSS settings, feeds that require authentication or feeds hidden from Popular feeds.") . "</p>";
 
 		print "<button dojoType=\"dijit.form.Button\" onclick=\"return displayDlg('pubOPMLUrl')\">".
-			__('Display URL')."</button> ";
+			__('Display published OPML URL')."</button> ";
+
+
+		print "<h3>" . __("Article archive") . "</h3>";
+
+		print "<p>" . __("You can export and import your Starred and Archived articles for safekeeping or when migrating between tt-rss instances.") . "</p>";
+
+		print "<button dojoType=\"dijit.form.Button\" onclick=\"return exportData()\">".
+			__('Export my data')."</button> ";
+
+		print "<hr>";
+
+		print "<iframe id=\"data_upload_iframe\"
+			name=\"data_upload_iframe\" onload=\"dataImportComplete(this)\"
+			style=\"width: 400px; height: 100px; display: none;\"></iframe>";
+
+		print "<form name=\"import_form\" style='display : block' target=\"data_upload_iframe\"
+			enctype=\"multipart/form-data\" method=\"POST\"
+			action=\"backend.php\">
+			<input id=\"export_file\" name=\"export_file\" type=\"file\">&nbsp;
+			<input type=\"hidden\" name=\"op\" value=\"dlg\">
+			<input type=\"hidden\" name=\"method\" value=\"dataimport\">
+			<button dojoType=\"dijit.form.Button\" onclick=\"return importData();\" type=\"submit\">" .
+			__('Import') . "</button>";
 
 
 		print "</div>"; # pane

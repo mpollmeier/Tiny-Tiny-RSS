@@ -126,6 +126,9 @@ function editFilter(id) {
 
 		var query = "backend.php?op=pref-filters&method=edit&id=" + param_escape(id);
 
+		if (dijit.byId("feedEditDlg"))
+			dijit.byId("feedEditDlg").destroyRecursive();
+
 		if (dijit.byId("filterEditDlg"))
 			dijit.byId("filterEditDlg").destroyRecursive();
 
@@ -754,6 +757,8 @@ function opmlImportComplete(iframe) {
 	try {
 		if (!iframe.contentDocument.body.innerHTML) return false;
 
+		Element.show(iframe);
+
 		notify('');
 
 		if (dijit.byId('opmlImportDlg'))
@@ -767,6 +772,14 @@ function opmlImportComplete(iframe) {
 			style: "width: 600px",
 			onCancel: function() {
 				updateFeedList();
+				updateFilterList();
+				updateLabelList();
+			},
+			execute: function() {
+				updateFeedList();
+				updateFilterList();
+				updateLabelList();
+				this.hide();
 			},
 			content: content});
 
@@ -786,9 +799,29 @@ function opmlImport() {
 		return false;
 	} else {
 		notify_progress("Importing, please wait...", true);
+
+		Element.show("upload_iframe");
+
 		return true;
 	}
 }
+
+function importData() {
+
+	var file = $("export_file");
+
+	if (file.value.length == 0) {
+		alert(__("Please choose the file first."));
+		return false;
+	} else {
+		notify_progress("Importing, please wait...", true);
+
+		Element.show("data_upload_iframe");
+
+		return true;
+	}
+}
+
 
 function updateFilterList() {
 	new Ajax.Request("backend.php",	{
@@ -1927,3 +1960,117 @@ function showHelp() {
 		exception_error("showHelp", e);
 	}
 }
+
+function exportData() {
+	try {
+
+		var query = "backend.php?op=dlg&method=exportData";
+
+		if (dijit.byId("dataExportDlg"))
+			dijit.byId("dataExportDlg").destroyRecursive();
+
+		var exported = 0;
+
+		dialog = new dijit.Dialog({
+			id: "dataExportDlg",
+			title: __("Export Data"),
+			style: "width: 600px",
+			prepare: function() {
+
+				notify_progress("Loading, please wait...");
+
+				new Ajax.Request("backend.php", {
+					parameters: "?op=rpc&method=exportrun&offset=" + exported,
+					onComplete: function(transport) {
+						try {
+							var rv = JSON.parse(transport.responseText);
+
+							if (rv && rv.exported != undefined) {
+								if (rv.exported > 0) {
+
+									exported += rv.exported;
+
+									$("export_status_message").innerHTML =
+										"<img src='images/indicator_tiny.gif'> " +
+										"Exported %d articles, please wait...".replace("%d",
+											exported);
+
+									setTimeout('dijit.byId("dataExportDlg").prepare()', 2000);
+
+								} else {
+
+									$("export_status_message").innerHTML =
+										__("Finished, exported %d articles. You can download the data <a class='visibleLink' href='%u'>here</a>.")
+										.replace("%d", exported)
+										.replace("%u", "backend.php?op=rpc&subop=exportget");
+
+									exported = 0;
+
+								}
+
+							} else {
+								$("export_status_message").innerHTML =
+									"Error occured, could not export data.";
+							}
+						} catch (e) {
+							exception_error("exportData", e, transport.responseText);
+						}
+
+						notify('');
+
+					} });
+
+			},
+			execute: function() {
+				if (this.validate()) {
+
+
+
+				}
+			},
+			href: query});
+
+		dialog.show();
+
+
+	} catch (e) {
+		exception_error("exportData", e);
+	}
+}
+
+function dataImportComplete(iframe) {
+	try {
+		if (!iframe.contentDocument.body.innerHTML) return false;
+
+		Element.hide(iframe);
+
+		notify('');
+
+		if (dijit.byId('dataImportDlg'))
+			dijit.byId('dataImportDlg').destroyRecursive();
+
+		var content = iframe.contentDocument.body.innerHTML;
+
+		dialog = new dijit.Dialog({
+			id: "dataImportDlg",
+			title: __("Data Import"),
+			style: "width: 600px",
+			onCancel: function() {
+
+			},
+			content: content});
+
+		dialog.show();
+
+	} catch (e) {
+		exception_error("dataImportComplete", e);
+	}
+}
+
+function gotoExportOpml(filename, settings) {
+	tmp = settings ? 1 : 0;
+	document.location.href = "opml.php?op=Export&filename=" + filename + "&settings=" + tmp;
+}
+
+
+

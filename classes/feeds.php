@@ -1,6 +1,12 @@
 <?php
 class Feeds extends Protected_Handler {
 
+	function csrf_ignore($method) {
+		$csrf_ignored = array("index");
+
+		return array_search($method, $csrf_ignored) !== false;
+	}
+
 	private function feedlist_init_cat($cat_id, $hidden = false) {
 		$obj = array();
 		$cat_id = (int) $cat_id;
@@ -178,9 +184,10 @@ class Feeds extends Protected_Handler {
 			catchupArticlesById($this->link, $ids, $cmode);
 		} */
 
-		//if ($method == "ForceUpdate" && $feed && is_numeric($feed) > 0) {
-		//	update_rss_feed($this->link, $feed, true);
-		//}
+		if ($method == "ForceUpdate" && $feed && is_numeric($feed) > 0) {
+			include "rssfuncs.php";
+			update_rss_feed($this->link, $feed, true);
+		}
 
 		if ($method == "MarkAllRead")  {
 			catchup_feed($this->link, $feed, $cat_view);
@@ -638,7 +645,7 @@ class Feeds extends Protected_Handler {
 							$reply['content'] .= "&nbsp;";
 
 							$reply['content'] .= "<a target='_blank' href='" . htmlspecialchars($tmp_line['feed_url']) . "'>";
-							$reply['content'] .= "<img title='".__('Feed URL')."'class='tinyFeedIcon' src='images/pub_set.gif'></a>";
+							$reply['content'] .= "<img title='".__('Feed URL')."'class='tinyFeedIcon' src='images/pub_set.png'></a>";
 
 							$reply['content'] .= "</div>";
 						}
