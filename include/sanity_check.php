@@ -6,7 +6,7 @@
 	} else {
 
 		define('EXPECTED_CONFIG_VERSION', 25);
-		define('SCHEMA_VERSION', 86);
+		define('SCHEMA_VERSION', 87);
 
 		require_once "config.php";
 		require_once "sanity_config.php";
@@ -19,6 +19,14 @@
 
 		if (!is_writable($purifier_cache_dir)) {
 			$err_msg = "HTMLPurifier cache directory should be writable by anyone (chmod -R 777 $purifier_cache_dir)";
+		}
+
+		if (!is_writable(CACHE_DIR . "/images")) {
+			$err_msg = "Image cache is not writable (chmod -R 777 ".CACHE_DIR."/images)";
+		}
+
+		if (!is_writable(CACHE_DIR . "/export")) {
+			$err_msg = "Data export cache is not writable (chmod -R 777 ".CACHE_DIR."/export)";
 		}
 
 		if (GENERATED_CONFIG_CHECK != EXPECTED_CONFIG_VERSION) {

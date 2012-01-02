@@ -1,6 +1,25 @@
 var notify_silent = false;
 var loading_progress = 0;
 var sanity_check_done = false;
+var init_params = {};
+
+Ajax.Base.prototype.initialize = Ajax.Base.prototype.initialize.wrap(
+	function (callOriginal, options) {
+
+		if (getInitParam("csrf_token") != undefined) {
+			Object.extend(options, options || { });
+
+			if (Object.isString(options.parameters))
+				options.parameters = options.parameters.toQueryParams();
+			else if (Object.isHash(options.parameters))
+				options.parameters = options.parameters.toObject();
+
+			options.parameters["csrf_token"] = getInitParam("csrf_token");
+		}
+
+		return callOriginal(options);
+	}
+);
 
 /* add method to remove element from array */
 
@@ -277,12 +296,6 @@ function gotoMain() {
 	document.location.href = "index.php";
 }
 
-function gotoExportOpml(filename, settings) {
-    tmp = settings ? 1 : 0;
-	document.location.href = "opml.php?op=Export&filename=" + filename + "&settings=" + tmp;
-}
-
-
 /** * @(#)isNumeric.js * * Copyright (c) 2000 by Sundar Dorai-Raj
   * * @author Sundar Dorai-Raj
   * * Email: sdoraira@vt.edu
@@ -543,6 +556,21 @@ function fatalError(code, msg, ext_info) {
 
 	} catch (e) {
 		exception_error("fatalError", e);
+	}
+}
+
+function filterDlgCheckCat(sender) {
+	try {
+		if (sender.checked) {
+			Element.show('filterDlg_cats');
+			Element.hide('filterDlg_feeds');
+		} else {
+			Element.show('filterDlg_feeds');
+			Element.hide('filterDlg_cats');
+		}
+
+	} catch (e) {
+		exception_error("filterDlgCheckCat", e);
 	}
 }
 
@@ -940,6 +968,9 @@ function quickAddFeed() {
 function quickAddFilter() {
 	try {
 		var query = "backend.php?op=dlg&method=quickAddFilter";
+
+		if (dijit.byId("feedEditDlg"))
+			dijit.byId("feedEditDlg").destroyRecursive();
 
 		if (dijit.byId("filterEditDlg"))
 			dijit.byId("filterEditDlg").destroyRecursive();
@@ -1363,6 +1394,9 @@ function editFeed(feed, event) {
 			param_escape(feed);
 
 		console.log(query);
+
+		if (dijit.byId("filterEditDlg"))
+			dijit.byId("filterEditDlg").destroyRecursive();
 
 		if (dijit.byId("feedEditDlg"))
 			dijit.byId("feedEditDlg").destroyRecursive();

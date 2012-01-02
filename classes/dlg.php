@@ -16,8 +16,28 @@ class Dlg extends Protected_Handler {
 		print "</dlg>";
 	}
 
+	function exportData() {
+
+		print "<p style='text-align : center' id='export_status_message'>You need to prepare exported data first by clicking the button below.</p>";
+
+		print "<div align='center'>";
+		print "<button dojoType=\"dijit.form.Button\"
+			onclick=\"dijit.byId('dataExportDlg').prepare()\">".
+			__('Prepare data')."</button>";
+
+		print "<button dojoType=\"dijit.form.Button\"
+			onclick=\"dijit.byId('dataExportDlg').hide()\">".
+			__('Close this window')."</button>";
+
+		print "</div>";
+
+
+	}
+
 	function importOpml() {
 		header("Content-Type: text/html"); # required for iframe
+
+		print __("If you have imported labels and/or filters, you might need to reload preferences to see your new data.") . "</p>";
 
 		print "<div class=\"prefFeedOPMLHolder\">";
 		$owner_uid = $_SESSION["uid"];
@@ -41,7 +61,6 @@ class Dlg extends Protected_Handler {
 		/* Handle OPML import by DOMXML/DOMDocument */
 
 		print "<ul class='nomarks'>";
-		print "<li>".__("Importing using DOMDocument.")."</li>";
 		require_once "opml.php";
 		opml_import_domdoc($this->link, $owner_uid);
 		print "</ul>";
@@ -49,7 +68,7 @@ class Dlg extends Protected_Handler {
 
 		print "<div align='center'>";
 		print "<button dojoType=\"dijit.form.Button\"
-			onclick=\"dijit.byId('opmlImportDlg').hide()\">".
+			onclick=\"dijit.byId('opmlImportDlg').execute()\">".
 			__('Close this window')."</button>";
 		print "</div>";
 
@@ -417,6 +436,7 @@ class Dlg extends Protected_Handler {
 		print "<input dojoType=\"dijit.form.TextBox\" style=\"display : none\" name=\"op\" value=\"pref-filters\">";
 		print "<input dojoType=\"dijit.form.TextBox\" style=\"display : none\" name=\"quiet\" value=\"1\">";
 		print "<input dojoType=\"dijit.form.TextBox\" style=\"display : none\" name=\"method\" value=\"add\">";
+		print "<input dojoType=\"dijit.form.TextBox\" style=\"display : none\" name=\"csrf_token\" value=\"".$_SESSION['csrf_token']."\">";
 
 		$result = db_query($this->link, "SELECT id,description
 			FROM ttrss_filter_types ORDER BY description");
@@ -461,8 +481,16 @@ class Dlg extends Protected_Handler {
 		print "<hr/>";
 
 		print __("in") . " ";
+
+		print "<span id='filterDlg_feeds'>";
 		print_feed_select($this->link, "feed_id", $active_feed_id,
 			'dojoType="dijit.form.FilteringSelect"');
+		print "</span>";
+
+		print "<span id='filterDlg_cats' style='display : none'>";
+		print_feed_cat_select($this->link, "cat_id", $active_cat_id,
+			'dojoType="dijit.form.FilteringSelect"');
+		print "</span>";
 
 		print "</div>";
 
@@ -504,7 +532,11 @@ class Dlg extends Protected_Handler {
 				<label for=\"enabled\">".__('Enabled')."</label><hr/>";
 
 		print "<input dojoType=\"dijit.form.CheckBox\" type=\"checkbox\" name=\"inverse\" id=\"inverse\">
-			<label for=\"inverse\">".__('Inverse match')."</label>";
+			<label for=\"inverse\">".__('Inverse match')."</label><hr/>";
+
+		print "<input dojoType=\"dijit.form.CheckBox\" type=\"checkbox\" name=\"cat_filter\" id=\"cat_filter\" onchange=\"filterDlgCheckCat(this)\">
+				<label for=\"cat_filter\">".__('Apply to category')."</label><hr/>";
+
 
 		print "</div>";
 
@@ -920,6 +952,29 @@ class Dlg extends Protected_Handler {
 				__('Cancel')."</button></div>";
 
 		return;
+	}
+
+	function dataImport() {
+		header("Content-Type: text/html"); # required for iframe
+
+		print "<div style='text-align : center'>";
+
+		if (is_file($_FILES['export_file']['tmp_name'])) {
+
+			perform_data_import($this->link, $_FILES['export_file']['tmp_name'], $_SESSION['uid']);
+
+		} else {
+			print "<p>" . T_sprintf("Could not upload file. You might need to adjust upload_max_filesize
+				in PHP.ini (current value = %s)", ini_get("upload_max_filesize")) . " or use CLI import tool.</p>";
+
+		}
+
+		print "<button dojoType=\"dijit.form.Button\"
+			onclick=\"dijit.byId('dataImportDlg').hide()\">".
+			__('Close this window')."</button>";
+
+		print "</div>";
+
 	}
 
 }

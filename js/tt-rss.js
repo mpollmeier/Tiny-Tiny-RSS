@@ -5,7 +5,6 @@ var _active_feed_id = 0;
 var _active_feed_is_cat = false;
 var hotkey_prefix = false;
 var hotkey_prefix_pressed = false;
-var init_params = {};
 var _force_scheduled_update = false;
 var last_scheduled_update = false;
 
@@ -686,11 +685,13 @@ function hotkey_handler(e) {
 			}
 
 			if ((keycode == 191 || keychar == '?') && shift_key) { // ?
-				if (!Element.visible("hotkey_help_overlay")) {
-					Effect.Appear("hotkey_help_overlay", {duration : 0.3, to : 0.9});
-				} else {
-					Element.hide("hotkey_help_overlay");
-				}
+
+				new Ajax.Request("backend.php", {
+					parameters: "?op=backend&method=help&topic=main",
+					onComplete: function(transport) {
+						$("hotkey_help_overlay").innerHTML = transport.responseText;
+						Effect.Appear("hotkey_help_overlay", {duration : 0.3});
+					} });
 				return false;
 			}
 

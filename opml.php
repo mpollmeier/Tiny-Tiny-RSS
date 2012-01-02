@@ -1,5 +1,5 @@
 <?php
-	set_include_path(get_include_path() . PATH_SEPARATOR . 
+	set_include_path(get_include_path() . PATH_SEPARATOR .
 		dirname(__FILE__) . "/include");
 
 	require_once "functions.php";
@@ -38,30 +38,26 @@
 
 				foreach ($outlines as $outline) {
 
-					$feed_title = db_escape_string($outline->attributes->getNamedItem('text')->nodeValue);
+					$attributes = $outline->attributes;
 
-					if (!$feed_title) {
-						$feed_title = db_escape_string($outline->attributes->getNamedItem('title')->nodeValue);
-					}
+					$feed_title = db_escape_string($attributes->getNamedItem('text')->nodeValue);
+					if (!$feed_title) $feed_title = db_escape_string($attributes->getNamedItem('title')->nodeValue);
 
-					$cat_title = db_escape_string($outline->attributes->getNamedItem('title')->nodeValue);
+					$cat_title = db_escape_string($attributes->getNamedItem('title')->nodeValue);
+					if (!$cat_title) $cat_title = db_escape_string($attributes->getNamedItem('text')->nodeValue);
 
-					if (!$cat_title) {
-						$cat_title = db_escape_string($outline->attributes->getNamedItem('text')->nodeValue);
-					}
+					$feed_url = db_escape_string($attributes->getNamedItem('xmlUrl')->nodeValue);
+					if (!$feed_url) $feed_url = db_escape_string($attributes->getNamedItem('xmlURL')->nodeValue);
 
-					$feed_url = db_escape_string($outline->attributes->getNamedItem('xmlUrl')->nodeValue);
+					$site_url = db_escape_string($attributes->getNamedItem('htmlUrl')->nodeValue);
 
-					if (!$feed_url)
-						$feed_url = db_escape_string($outline->attributes->getNamedItem('xmlURL')->nodeValue);
-
-					$site_url = db_escape_string($outline->attributes->getNamedItem('htmlUrl')->nodeValue);
-
-					$pref_name = db_escape_string($outline->attributes->getNamedItem('pref-name')->nodeValue);
+					$pref_name = db_escape_string($attributes->getNamedItem('pref-name')->nodeValue);
+					$label_name = db_escape_string($attributes->getNamedItem('label-name')->nodeValue);
+					$filter_name = db_escape_string($attributes->getNamedItem('filter-name')->nodeValue);
 
 					if ($cat_title && !$feed_url) {
 
-						if ($cat_title != "tt-rss-prefs") {
+						if ($cat_title != "tt-rss-prefs" && $cat_title != 'tt-rss-labels' && $cat_title != 'tt-rss-filters') {
 
 							db_query($link, "BEGIN");
 
@@ -98,6 +94,98 @@
 
 								set_pref($link, $pref_name, $pref_value);
 
+							}
+						}
+					}
+
+					if ($label_name) {
+						$parent_node = $outline->parentNode;
+
+						if ($parent_node && $parent_node->nodeName == "outline") {
+							$cat_check = $parent_node->attributes->getNamedItem('title')->nodeValue;
+							if ($cat_check == "tt-rss-labels") {
+
+								$fg_color = db_escape_string($attributes->getNamedItem('label-fg-color')->nodeValue);
+								$bg_color = db_escape_string($attributes->getNamedItem('label-bg-color')->nodeValue);
+
+								if (!label_find_id($link, $label_name, $_SESSION['uid'])) {
+									printf("<li>".__("Adding label %s")."</li>", htmlspecialchars($label_name));
+									label_create($link, $label_name, $fg_color, $bg_color);
+								} else {
+									printf("<li>".__("Duplicate label: %s")."</li>",
+										htmlspecialchars($label_name));
+								}
+							}
+						}
+					}
+
+					if ($filter_name) {
+						$parent_node = $outline->parentNode;
+
+						if ($parent_node && $parent_node->nodeName == "outline") {
+							$cat_check = $parent_node->attributes->getNamedItem('title')->nodeValue;
+							if ($cat_check == "tt-rss-filters") {
+								$filter = json_decode($outline->nodeValue, true);
+
+								if ($filter) {
+									$reg_exp = db_escape_string($filter['reg_exp']);
+									$filter_type = (int)$filter['filter_type'];
+									$action_id = (int)$filter['action_id'];
+
+									$result = db_query($link, "SELECT id FROM ttrss_filters WHERE
+										reg_exp = '$reg_exp' AND
+										filter_type = '$filter_type' AND
+										action_id = '$action_id' AND
+										owner_uid = " .$_SESSION['uid']);
+
+									if (db_num_rows($result) == 0) {
+										$enabled = bool_to_sql_bool($filter['enabled']);
+										$action_param = db_escape_string($filter['action_param']);
+										$inverse = bool_to_sql_bool($filter['inverse']);
+										$filter_param = db_escape_string($filter['filter_param']);
+										$cat_filter = bool_to_sql_bool($filter['cat_filter']);
+
+										$feed_url = db_escape_string($filter['feed_url']);
+										$cat_title = db_escape_string($filter['cat_title']);
+
+										$result = db_query($link, "SELECT id FROM ttrss_feeds WHERE
+											feed_url = '$feed_url' AND owner_uid = ".$_SESSION['uid']);
+
+										if (db_num_rows($result) != 0) {
+											$feed_id = db_fetch_result($result, 0, "id");
+										} else {
+											$feed_id = "NULL";
+										}
+
+										$result = db_query($link, "SELECT id FROM ttrss_feed_categories WHERE
+											title = '$cat_title' AND  owner_uid = ".$_SESSION['uid']);
+
+										if (db_num_rows($result) != 0) {
+											$cat_id = db_fetch_result($result, 0, "id");
+										} else {
+											$cat_id = "NULL";
+										}
+
+										printf("<li>".__("Adding filter %s")."</li>", htmlspecialchars($reg_exp));
+
+										$query = "INSERT INTO ttrss_filters (filter_type, action_id,
+												enabled, inverse, action_param, filter_param,
+												cat_filter, feed_id,
+												cat_id, reg_exp,
+												owner_uid)
+											VALUES ($filter_type, $action_id,
+												$enabled, $inverse, '$action_param', '$filter_param',
+												$cat_filter, $feed_id,
+												$cat_id, '$reg_exp', ".
+												$_SESSION['uid'].")";
+
+										db_query($link, $query);
+
+									} else {
+										printf("<li>".__("Duplicate filter %s")."</li>", htmlspecialchars($reg_exp));
+
+									}
+								}
 							}
 						}
 					}
@@ -181,10 +269,10 @@
 	function opml_export($link, $name, $owner_uid, $hide_private_feeds=false, $include_settings=true) {
 		if (!$_REQUEST["debug"]) {
 			header("Content-type: application/xml+opml");
+			header("Content-Disposition: attachment; filename=" . $name );
 		} else {
 			header("Content-type: text/xml");
 		}
-        header("Content-Disposition: attachment; filename=" . $name );
 
 		print "<?xml version=\"1.0\" encoding=\"utf-8\"?>";
 
@@ -279,6 +367,56 @@
 				print "</outline>";
 
 			}
+
+			print "</outline>";
+
+			print "<outline title=\"tt-rss-labels\" schema-version=\"".SCHEMA_VERSION."\">";
+
+			$result = db_query($link, "SELECT * FROM ttrss_labels2 WHERE
+				owner_uid = " . $_SESSION['uid']);
+
+			while ($line = db_fetch_assoc($result)) {
+				$name = htmlspecialchars($line['caption']);
+				$fg_color = htmlspecialchars($line['fg_color']);
+				$bg_color = htmlspecialchars($line['bg_color']);
+
+				print "<outline label-name=\"$name\" label-fg-color=\"$fg_color\" label-bg-color=\"$bg_color\"/>";
+
+			}
+
+			print "</outline>";
+
+			print "<outline title=\"tt-rss-filters\" schema-version=\"".SCHEMA_VERSION."\">";
+
+			$result = db_query($link, "SELECT filter_type,
+					reg_exp,
+					action_id,
+					enabled,
+					action_param,
+					inverse,
+					filter_param,
+					cat_filter,
+					ttrss_feeds.feed_url AS feed_url,
+					ttrss_feed_categories.title AS cat_title
+					FROM ttrss_filters
+						LEFT JOIN ttrss_feeds ON (feed_id = ttrss_feeds.id)
+						LEFT JOIN ttrss_feed_categories ON (ttrss_filters.cat_id = ttrss_feed_categories.id)
+					WHERE
+						ttrss_filters.owner_uid = " . $_SESSION['uid']);
+
+			while ($line = db_fetch_assoc($result)) {
+				$name = htmlspecialchars($line['reg_exp']);
+
+				foreach (array('enabled', 'inverse', 'cat_filter') as $b) {
+					$line[$b] = sql_bool_to_bool($line[$b]);
+				}
+
+				$filter = json_encode($line);
+
+				print "<outline filter-name=\"$name\">$filter</outline>";
+
+			}
+
 
 			print "</outline>";
 		}

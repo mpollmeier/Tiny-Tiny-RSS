@@ -701,9 +701,11 @@
 
 					// First login ?
 					if (db_num_rows($result) == 0) {
+						$pwd_hash = encrypt_password(make_password(), $login);
+
 						$query2 = "INSERT INTO ttrss_users
-								(login,access_level,last_login,created)
-								VALUES ('$login', 0, null, NOW())";
+								(login,access_level,last_login,created,pwd_hash)
+								VALUES ('$login', 0, null, NOW(), '$pwd_hash')";
 						db_query($link, $query2);
 					}
 				}
@@ -721,6 +723,7 @@
 				$_SESSION["uid"] = db_fetch_result($result, 0, "id");
 				$_SESSION["name"] = db_fetch_result($result, 0, "login");
 				$_SESSION["access_level"] = db_fetch_result($result, 0, "access_level");
+				$_SESSION["csrf_token"] = sha1(uniqid(rand(), true));
 
 				db_query($link, "UPDATE ttrss_users SET last_login = NOW() WHERE id = " .
 					$_SESSION["uid"]);
@@ -808,6 +811,10 @@
 		if (isset($_COOKIE[session_name()])) {
 		   setcookie(session_name(), '', time()-42000, '/');
 		}
+	}
+
+	function validate_csrf($csrf_token) {
+		return $csrf_token == $_SESSION['csrf_token'];
 	}
 
 	function validate_session($link) {
@@ -2064,6 +2071,8 @@
 
 		$params["collapsed_feedlist"] = (int) get_pref($link, "_COLLAPSED_FEEDLIST");
 
+		$params["csrf_token"] = $_SESSION["csrf_token"];
+
 		return $params;
 	}
 
@@ -2553,7 +2562,7 @@
 
 			$config = HTMLPurifier_Config::createDefault();
 
-			$allowed = "p,a[href],i,em,b,strong,code,pre,blockquote,br,img[src|alt|title],ul,ol,li,h1,h2,h3,h4,s,object[classid|type|id|name|width|height|codebase],param[name|value],table,tr,td";
+			$allowed = "p,a[href],i,em,b,strong,code,pre,blockquote,br,img[src|alt|title|align|hspace],ul,ol,li,h1,h2,h3,h4,s,object[classid|type|id|name|width|height|codebase],param[name|value],table,tr,td";
 
 			$config->set('HTML.SafeObject', true);
 			@$config->set('HTML', 'Allowed', $allowed);
@@ -2633,14 +2642,14 @@
 	 * @param integer $limit The maximum number of articles by digest.
 	 * @return boolean Return false if digests are not enabled.
 	 */
-	function send_headlines_digests($link, $limit = 100) {
+	function send_headlines_digests($link, $limit = 100, $debug = true) {
 
 		require_once 'lib/phpmailer/class.phpmailer.php';
 
 		$user_limit = 15; // amount of users to process (e.g. emails to send out)
 		$days = 1;
 
-		print "Sending digests, batch of max $user_limit users, days = $days, headline limit = $limit\n\n";
+		if ($debug) _debug("Sending digests, batch of max $user_limit users, days = $days, headline limit = $limit");
 
 		if (DB_TYPE == "pgsql") {
 			$interval_query = "last_digest_sent < NOW() - INTERVAL '$days days'";
@@ -2709,7 +2718,7 @@
 			}
 		}
 
-		print "All done.\n";
+		if ($debug) _debug("All done.");
 
 	}
 
@@ -3321,7 +3330,7 @@
 					$rv['content'] .= "&nbsp;";
 
 					$rv['content'] .= "<a target='_blank' href='" . htmlspecialchars($tmp_line['feed_url']) . "'>";
-					$rv['content'] .= "<img title='".__('Feed URL')."'class='tinyFeedIcon' src='images/pub_set.gif'></a>";
+					$rv['content'] .= "<img title='".__('Feed URL')."'class='tinyFeedIcon' src='images/pub_set.png'></a>";
 
 					$rv['content'] .= "</div>";
 				}
@@ -3481,15 +3490,23 @@
 				inverse,
 				action_param,
 				filter_param
-				FROM ttrss_filters,ttrss_filter_types,ttrss_filter_actions WHERE
+				FROM ttrss_filters
+					LEFT JOIN ttrss_feeds ON (ttrss_feeds.id = '$feed'),
+					ttrss_filter_types,ttrss_filter_actions
+				WHERE
 					enabled = true AND
 					$ftype_query_part
-					owner_uid = $owner_uid AND
+					ttrss_filters.owner_uid = $owner_uid AND
 					ttrss_filter_types.id = filter_type AND
 					ttrss_filter_actions.id = action_id AND
-					(feed_id IS NULL OR feed_id = '$feed') ORDER BY reg_exp");
+					((cat_filter = true AND ttrss_feeds.cat_id = ttrss_filters.cat_id) OR
+					(cat_filter = true AND ttrss_feeds.cat_id IS NULL AND
+						ttrss_filters.cat_id IS NULL) OR
+					(cat_filter = false AND (feed_id IS NULL OR feed_id = '$feed')))
+				ORDER BY reg_exp");
 
 			while ($line = db_fetch_assoc($result)) {
+
 				if (!$filters[$line["name"]]) $filters[$line["name"]] = array();
 					$filter["reg_exp"] = $line["reg_exp"];
 					$filter["action"] = $line["action"];
@@ -3957,19 +3974,21 @@
 		db_query($link, "COMMIT");
 	}
 
-	function label_create($link, $caption) {
+	function label_create($link, $caption, $fg_color = '', $bg_color = '', $owner_uid) {
+
+		if (!$owner_uid) $owner_uid = $_SESSION['uid'];
 
 		db_query($link, "BEGIN");
 
 		$result = false;
 
 		$result = db_query($link, "SELECT id FROM ttrss_labels2
-			WHERE caption = '$caption' AND owner_uid =  ". $_SESSION["uid"]);
+			WHERE caption = '$caption' AND owner_uid = $owner_uid");
 
 		if (db_num_rows($result) == 0) {
 			$result = db_query($link,
-				"INSERT INTO ttrss_labels2 (caption,owner_uid)
-					VALUES ('$caption', '".$_SESSION["uid"]."')");
+				"INSERT INTO ttrss_labels2 (caption,owner_uid,fg_color,bg_color)
+					VALUES ('$caption', '$owner_uid', '$fg_color', '$bg_color')");
 
 			$result = db_affected_rows($link, $result) != 0;
 		}
@@ -5099,6 +5118,221 @@
 		}
 
 		return $rv;
+	}
+
+	if (!function_exists('gzdecode')) {
+		function gzdecode($string) { // no support for 2nd argument
+			return file_get_contents('compress.zlib://data:who/cares;base64,'.
+				base64_encode($string));
+		}
+	}
+
+	function perform_data_import($link, $filename, $owner_uid) {
+
+		$num_imported = 0;
+		$num_processed = 0;
+		$num_feeds_created = 0;
+
+		$doc = @DOMDocument::load($filename);
+
+		if (!$doc) {
+			$contents = file_get_contents($filename);
+
+			if ($contents) {
+				$data = @gzuncompress($contents);
+			}
+
+			if (!$data) {
+				$data = @gzdecode($contents);
+			}
+
+			if ($data)
+				$doc = DOMDocument::loadXML($data);
+		}
+
+		if ($doc) {
+
+			$xpath = new DOMXpath($doc);
+
+			$container = $doc->firstChild;
+
+			if ($container && $container->hasAttribute('schema-version')) {
+				$schema_version = $container->getAttribute('schema-version');
+
+				if ($schema_version != SCHEMA_VERSION) {
+					print "<p>" .__("Could not import: incorrect schema version.") . "</p>";
+					return;
+				}
+
+			} else {
+				print "<p>" . __("Could not import: unrecognized document format.") . "</p>";
+				return;
+			}
+
+			$articles = $xpath->query("//article");
+
+			foreach ($articles as $article_node) {
+				if ($article_node->childNodes) {
+
+					$ref_id = 0;
+
+					$article = array();
+
+					foreach ($article_node->childNodes as $child) {
+						if ($child->nodeName != 'label_cache')
+							$article[$child->nodeName] = db_escape_string($child->nodeValue);
+						else
+							$article[$child->nodeName] = $child->nodeValue;
+					}
+
+					//print_r($article);
+
+					if ($article['guid']) {
+
+						++$num_processed;
+
+						//db_query($link, "BEGIN");
+
+						//print 'GUID:' . $article['guid'] . "\n";
+
+						$result = db_query($link, "SELECT id FROM ttrss_entries
+							WHERE guid = '".$article['guid']."'");
+
+						if (db_num_rows($result) == 0) {
+
+							$result = db_query($link,
+								"INSERT INTO ttrss_entries
+									(title,
+									guid,
+									link,
+									updated,
+									content,
+									content_hash,
+									no_orig_date,
+									date_updated,
+									date_entered,
+									comments,
+									num_comments,
+									author)
+								VALUES
+									('".$article['title']."',
+									'".$article['guid']."',
+									'".$article['link']."',
+									'".$article['updated']."',
+									'".$article['content']."',
+									'".sha1($article['content'])."',
+									false,
+									NOW(),
+									NOW(),
+									'',
+									'0',
+									'')");
+
+							$result = db_query($link, "SELECT id FROM ttrss_entries
+								WHERE guid = '".$article['guid']."'");
+
+							if (db_num_rows($result) != 0) {
+								$ref_id = db_fetch_result($result, 0, "id");
+							}
+
+						} else {
+							$ref_id = db_fetch_result($result, 0, "id");
+						}
+
+						//print "Got ref ID: $ref_id\n";
+
+						if ($ref_id) {
+
+							$feed_url = $article['feed_url'];
+							$feed_title = $article['feed_title'];
+
+							$feed = 'NULL';
+
+							if ($feed_url && $feed_title) {
+								$result = db_query($link, "SELECT id FROM ttrss_feeds
+									WHERE feed_url = '$feed_url' AND owner_uid = '$owner_uid'");
+
+								if (db_num_rows($result) != 0) {
+									$feed = db_fetch_result($result, 0, "id");
+								} else {
+									// try autocreating feed in Uncategorized...
+
+									$result = db_query($link, "INSERT INTO ttrss_feeds (owner_uid,
+										feed_url, title) VALUES ($owner_uid, '$feed_url', '$feed_title')");
+
+									$result = db_query($link, "SELECT id FROM ttrss_feeds
+										WHERE feed_url = '$feed_url' AND owner_uid = '$owner_uid'");
+
+									if (db_num_rows($result) != 0) {
+										++$num_feeds_created;
+
+										$feed = db_fetch_result($result, 0, "id");
+									}
+								}
+							}
+
+							if ($feed != 'NULL')
+								$feed_qpart = "feed_id = $feed";
+							else
+								$feed_qpart = "feed_id IS NULL";
+
+							//print "$ref_id / $feed / " . $article['title'] . "\n";
+
+							$result = db_query($link, "SELECT int_id FROM ttrss_user_entries
+								WHERE ref_id = '$ref_id' AND owner_uid = '$owner_uid' AND $feed_qpart");
+
+							if (db_num_rows($result) == 0) {
+
+								$marked = bool_to_sql_bool(sql_bool_to_bool($article['marked']));
+								$published = bool_to_sql_bool(sql_bool_to_bool($article['published']));
+								$score = (int) $article['score'];
+
+								$tag_cache = $article['tag_cache'];
+								$label_cache = db_escape_string($article['label_cache']);
+								$note = $article['note'];
+
+								//print "Importing " . $article['title'] . "<br/>";
+
+								++$num_imported;
+
+								$result = db_query($link,
+									"INSERT INTO ttrss_user_entries
+									(ref_id, owner_uid, feed_id, unread, last_read, marked,
+										published, score, tag_cache, label_cache, uuid, note)
+									VALUES ($ref_id, $owner_uid, $feed, false,
+										NULL, $marked, $published, $score, '$tag_cache',
+											'$label_cache', '', '$note')");
+
+								$label_cache = json_decode($label_cache, true);
+
+								if (is_array($label_cache) && $label_cache["no-labels"] != 1) {
+									foreach ($label_cache as $label) {
+
+										label_create($link, $label[1],
+											$label[2], $label[3], $owner_uid);
+
+										label_add_article($link, $ref_id, $label[1], $owner_uid);
+
+									}
+								}
+
+								//db_query($link, "COMMIT");
+							}
+						}
+					}
+				}
+			}
+
+			print "<p>" .
+				T_sprintf("Finished: %d articles processed, %d imported, %d feeds created.",
+					$num_processed, $num_imported, $num_feeds_created) .
+					"</p>";
+
+		} else {
+
+			print "<p>" . __("Could not load XML document.") . "</p>";
+
+		}
 	}
 
 ?>
