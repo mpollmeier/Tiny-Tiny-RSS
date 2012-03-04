@@ -2,7 +2,7 @@
 	require_once "config.php";
 	require_once "db.php";
 
-	if (!defined('DISABLE_SESSIONS')) {
+	if (!defined('DISABLE_SESSIONS') && !defined('PREFS_NO_CACHE')) {
 		if (!$_SESSION["prefs_cache"])
 			$_SESSION["prefs_cache"] = array();
 	}
@@ -21,7 +21,7 @@
 			//$prefs_cache = false;
 		}
 
-		if ($prefs_cache && !defined('DISABLE_SESSIONS')) {
+		if ($prefs_cache && !defined('DISABLE_SESSIONS') && !defined('PREFS_NO_CACHE')) {
 			if ($_SESSION["prefs_cache"] && @$_SESSION["prefs_cache"][$pref_name]) {
 				$tuple = $_SESSION["prefs_cache"][$pref_name];
 				return convert_pref_type($tuple["value"], $tuple["type"]);
@@ -79,9 +79,9 @@
 		}
 	}
 
-	function set_pref($link, $pref_name, $value, $user_id = false) {
+	function set_pref($link, $pref_name, $value, $user_id = false, $strip_tags = true) {
 		$pref_name = db_escape_string($pref_name);
-		$value = db_escape_string($value);
+		$value = db_escape_string($value, $strip_tags);
 
 		if (!$user_id) {
 			$user_id = $_SESSION["uid"];
@@ -102,7 +102,7 @@
 		$type_name = "";
 		$current_value = "";
 
-		if (!defined('DISABLE_SESSIONS')) {
+		if (!defined('DISABLE_SESSIONS') && !defined('PREFS_NO_CACHE')) {
 			if ($_SESSION["prefs_cache"] && @$_SESSION["prefs_cache"][$pref_name]) {
 				$type_name = $_SESSION["prefs_cache"][$pref_name]["type"];
 				$current_value = $_SESSION["prefs_cache"][$pref_name]["value"];

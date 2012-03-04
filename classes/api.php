@@ -2,7 +2,7 @@
 
 class API extends Handler {
 
-	const API_LEVEL  = 1;
+	const API_LEVEL  = 2;
 
 	const STATUS_OK  = 0;
 	const STATUS_ERR = 1;
@@ -160,6 +160,9 @@ class API extends Handler {
 		if ($feed_id != "") {
 
 			$limit = (int)db_escape_string($_REQUEST["limit"]);
+
+			if (!$limit || $limit >= 60) $limit = 60;
+
 			$offset = (int)db_escape_string($_REQUEST["skip"]);
 			$filter = db_escape_string($_REQUEST["filter"]);
 			$is_cat = (bool)db_escape_string($_REQUEST["is_cat"]);
@@ -170,9 +173,15 @@ class API extends Handler {
 			$include_attachments = (bool)db_escape_string($_REQUEST["include_attachments"]);
 			$since_id = (int)db_escape_string($_REQUEST["since_id"]);
 
+			/* do not rely on params below */
+
+			$search = db_escape_string($_REQUEST["search"]);
+			$search_mode = db_escape_string($_REQUEST["search_mode"]);
+			$match_on = db_escape_string($_REQUEST["match_on"]);
+
 			$headlines = api_get_headlines($this->link, $feed_id, $limit, $offset,
 				$filter, $is_cat, $show_excerpt, $show_content, $view_mode, false,
-				$include_attachments, $since_id);
+				$include_attachments, $since_id, $search, $search_mode, $match_on);
 
 			print $this->wrap(self::STATUS_OK, $headlines);
 		} else {

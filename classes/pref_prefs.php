@@ -28,34 +28,43 @@ class Pref_Prefs extends Protected_Handler {
 			return;
 		}
 
-		$old_pw_hash1 = encrypt_password($old_pw);
-		$old_pw_hash2 = encrypt_password($old_pw, $_SESSION["name"]);
-		$new_pw_hash = encrypt_password($new_pw, $_SESSION["name"]);
+		$result = db_query($this->link, "SELECT salt FROM ttrss_users WHERE
+			id = " . $_SESSION['uid']);
 
-		$active_uid = $_SESSION["uid"];
+		$salt = db_fetch_result($result, 0, "salt");
 
-		if ($old_pw && $new_pw) {
+		if (!$salt) {
+			$old_pw_hash1 = encrypt_password($old_pw);
+			$old_pw_hash2 = encrypt_password($old_pw, $_SESSION["name"]);
 
-			$login = db_escape_string($_SERVER['PHP_AUTH_USER']);
+			$query = "SELECT id FROM ttrss_users WHERE
+				id = ".$_SESSION['uid']." AND (pwd_hash = '$old_pw_hash1' OR
+				pwd_hash = '$old_pw_hash2')";
 
-			$result = db_query($this->link, "SELECT id FROM ttrss_users WHERE
-				id = '$active_uid' AND (pwd_hash = '$old_pw_hash1' OR
-					pwd_hash = '$old_pw_hash2')");
+		} else {
+			$old_pw_hash = encrypt_password($old_pw, $salt, true);
 
-			if (db_num_rows($result) == 1) {
-				db_query($this->link, "UPDATE ttrss_users SET pwd_hash = '$new_pw_hash'
-					WHERE id = '$active_uid'");
-
-				$_SESSION["pwd_hash"] = $new_pw_hash;
-
-				print __("Password has been changed.");
-			} else {
-				print "ERROR: ".__('Old password is incorrect.');
-			}
+			$query = "SELECT id FROM ttrss_users WHERE
+				id = ".$_SESSION['uid']." AND pwd_hash = '$old_pw_hash'";
 		}
 
-		return;
+		$result = db_query($this->link, $query);
 
+		if (db_num_rows($result) == 1) {
+
+			$new_salt = substr(bin2hex(get_random_bytes(125)), 0, 250);
+			$new_pw_hash = encrypt_password($new_pw, $new_salt, true);
+
+			db_query($this->link, "UPDATE ttrss_users SET
+				pwd_hash = '$new_pw_hash', salt = '$new_salt'
+					WHERE id = ".$_SESSION['uid']);
+
+			$_SESSION["pwd_hash"] = $new_pw_hash;
+
+			print __("Password has been changed.");
+		} else {
+			print "ERROR: ".__('Old password is incorrect.');
+		}
 	}
 
 	function saveconfig() {
@@ -68,6 +77,15 @@ class Pref_Prefs extends Protected_Handler {
 
 			$pref_name = db_escape_string($pref_name);
 			$value = db_escape_string($_POST[$pref_name]);
+
+			if ($pref_name == 'DIGEST_PREFERRED_TIME') {
+				if (get_pref($this->link, 'DIGEST_PREFERRED_TIME') != $value) {
+
+					db_query($this->link, "UPDATE ttrss_users SET
+						last_digest_sent = NULL WHERE id = " . $_SESSION['uid']);
+
+				}
+			}
 
 			set_pref($this->link, $pref_name, $value);
 
@@ -139,7 +157,7 @@ class Pref_Prefs extends Protected_Handler {
 					"PURGE_UNREAD_ARTICLES", "DIGEST_ENABLE", "DIGEST_CATCHUP",
 					"BLACKLISTED_TAGS", "ENABLE_API_ACCESS", "UPDATE_POST_ON_CHECKSUM_CHANGE",
 					"DEFAULT_UPDATE_INTERVAL", "USER_TIMEZONE", "SORT_HEADLINES_BY_FEED_DATE",
-					"SSL_CERT_SERIAL");
+					"SSL_CERT_SERIAL", "DIGEST_PREFERRED_TIME");
 
 
 		if (!SINGLE_USER_MODE) {
@@ -147,7 +165,7 @@ class Pref_Prefs extends Protected_Handler {
 			$_SESSION["prefs_op_result"] = "";
 
 			print "<div dojoType=\"dijit.layout.AccordionContainer\" region=\"center\">";
-			print "<div dojoType=\"dijit.layout.AccordionPane\" title=\"".__('Personal data')."\">";
+			print "<div dojoType=\"dijit.layout.AccordionPane\" title=\"".__('Personal data / Authentication')."\">";
 
 			print "<form dojoType=\"dijit.form.Form\" id=\"changeUserdataForm\">";
 
@@ -196,9 +214,6 @@ class Pref_Prefs extends Protected_Handler {
 				__("Save data")."</button>";
 
 			print "</form>";
-
-			print "</div>"; # pane
-			print "<div dojoType=\"dijit.layout.AccordionPane\" title=\"".__('Authentication')."\">";
 
 			$result = db_query($this->link, "SELECT id FROM ttrss_users
 				WHERE id = ".$_SESSION["uid"]." AND pwd_hash
@@ -455,6 +470,11 @@ class Pref_Prefs extends Protected_Handler {
 					onclick=\"insertSSLserial('')\">" .
 					__('Clear') . "</button>";
 
+			} else if ($pref_name == 'DIGEST_PREFERRED_TIME') {
+				print "<input dojoType=\"dijit.form.ValidationTextBox\"
+					id=\"$pref_name\" regexp=\"[012]?\d:\d\d\" placeHolder=\"12:00\"
+					name=\"$pref_name\" value=\"$value\"><div class=\"insensitive\">".
+					T_sprintf("Current server time: %s (UTC)", date("H:i")) . "</div>";
 			} else {
 				$regexp = ($type_name == 'integer') ? 'regexp="^\d*$"' : '';
 

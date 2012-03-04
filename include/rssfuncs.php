@@ -60,6 +60,8 @@
 	function update_daemon_common($link, $limit = DAEMON_FEED_LIMIT, $from_http = false, $debug = true) {
 		// Process all other feeds using last_updated and interval parameters
 
+		define('PREFS_NO_CACHE', true);
+
 		// Test if the user has loggued in recently. If not, it does not update its feeds.
 		if (!SINGLE_USER_MODE && DAEMON_UPDATE_LOGIN_LIMIT > 0) {
 			if (DB_TYPE == "pgsql") {
@@ -149,13 +151,15 @@
 		}
 
 		// Send feed digests by email if needed.
-		send_headlines_digests($link, 100, $debug);
+		send_headlines_digests($link, $debug);
 
 	} // function update_daemon_common
 
 	function fetch_twitter_rss($link, $url, $owner_uid) {
 
 		require_once 'lib/tmhoauth/tmhOAuth.php';
+		require_once "lib/magpierss/rss_fetch.inc";
+		require_once 'lib/magpierss/rss_utils.inc';
 
 		$result = db_query($link, "SELECT twitter_oauth FROM ttrss_users
 			WHERE id = $owner_uid");
@@ -172,7 +176,8 @@
 				'user_secret' => $access_token['oauth_token_secret'],
 			));
 
-			$code = $tmhOAuth->request('GET', $url);
+			$code = $tmhOAuth->request('GET', $url,
+				convertUrlQuery(parse_url($url, PHP_URL_QUERY)));
 
 			if ($code == 200) {
 
@@ -416,12 +421,18 @@
 			$owner_uid = db_fetch_result($result, 0, "owner_uid");
 
 			if ($use_simplepie) {
-				$site_url = $rss->get_link();
+				$site_url = db_escape_string(trim($rss->get_link()));
 			} else {
-				$site_url = $rss->channel["link"];
+				$site_url = db_escape_string(trim($rss->channel["link"]));
+			}
+
+			// weird, weird Magpie
+			if (!$use_simplepie) {
+				if (!$site_url) $site_url = db_escape_string($rss->channel["link_"]);
 			}
 
 			$site_url = rewrite_relative_url($fetch_url, $site_url);
+			$site_url = substr($site_url, 0, 250);
 
 			if ($debug_enabled) {
 				_debug("update_rss_feed: checking favicon...");
@@ -445,12 +456,7 @@
 					title = '$feed_title' WHERE id = '$feed'");
 			}
 
-			// weird, weird Magpie
-			if (!$use_simplepie) {
-				if (!$site_url) $site_url = db_escape_string($rss->channel["link_"]);
-			}
-
-			if ($site_url && $orig_site_url != db_escape_string($site_url)) {
+			if ($site_url && $orig_site_url != $site_url) {
 				db_query($link, "UPDATE ttrss_feeds SET
 					site_url = '$site_url' WHERE id = '$feed'");
 			}
@@ -458,11 +464,12 @@
 //			print "I: " . $rss->channel["image"]["url"];
 
 			if (!$use_simplepie) {
-				$icon_url = db_escape_string($rss->image["url"]);
+				$icon_url = db_escape_string(trim($rss->image["url"]));
 			} else {
-				$icon_url = db_escape_string($rss->get_image_url());
+				$icon_url = db_escape_string(trim($rss->get_image_url()));
 			}
 
+			$icon_url = rewrite_relative_url($fetch_url, $icon_url);
 			$icon_url = substr($icon_url, 0, 250);
 
 			if ($icon_url && $orig_icon_url != $icon_url) {
@@ -1334,7 +1341,7 @@
 				if (!file_exists($local_filename)) {
 					$file_content = fetch_file_contents($src);
 
-					if ($file_content) {
+					if ($file_content && strlen($file_content) > 1024) {
 						file_put_contents($local_filename, $file_content);
 					}
 				}
@@ -1348,7 +1355,7 @@
 
 		$node = $doc->getElementsByTagName('body')->item(0);
 
-		return $doc->saveXML($node);
+		return $doc->saveXML($node, LIBXML_NOEMPTYTAG);
 	}
 
 	function expire_cached_files($debug) {
@@ -1362,17 +1369,37 @@
 			if (is_writable($cache_dir)) {
 				$files = glob("$cache_dir/*");
 
-				foreach ($files as $file) {
-					if (time() - filemtime($file) > 86400*7) {
-						unlink($file);
+				if ($files)
+					foreach ($files as $file) {
+						if (time() - filemtime($file) > 86400*7) {
+							unlink($file);
 
-						++$num_deleted;
+							++$num_deleted;
+						}
 					}
 				}
-			}
 
 			if ($debug) _debug("Removed $num_deleted files.");
 		}
 	}
 
+	/**
+	* Source: http://www.php.net/manual/en/function.parse-url.php#104527
+	* Returns the url query as associative array
+	*
+	* @param    string    query
+	* @return    array    params
+	*/
+	function convertUrlQuery($query) {
+		$queryParts = explode('&', $query);
+
+		$params = array();
+
+		foreach ($queryParts as $param) {
+			$item = explode('=', $param);
+			$params[$item[0]] = $item[1];
+		}
+
+		return $params;
+	}
 ?>

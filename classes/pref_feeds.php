@@ -2,7 +2,8 @@
 class Pref_Feeds extends Protected_Handler {
 
 	function csrf_ignore($method) {
-		$csrf_ignored = array("index", "getfeedtree", "add", "editcats", "editfeed");
+		$csrf_ignored = array("index", "getfeedtree", "add", "editcats", "editfeed",
+			"savefeedorder");
 
 		return array_search($method, $csrf_ignored) !== false;
 	}
@@ -991,11 +992,12 @@ class Pref_Feeds extends Protected_Handler {
 		$auth_pass = db_escape_string(trim($_POST["auth_pass"]));
 
 		if ($p_from != 'tt-rss') {
-			header("Content-Type: text/html");
+			header('Content-Type: text/html; charset=utf-8');
 			print "<html>
 				<head>
 					<title>Tiny Tiny RSS</title>
 					<link rel=\"stylesheet\" type=\"text/css\" href=\"utility.css\">
+					<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\"/>
 				</head>
 				<body>
 				<img class=\"floatingLogo\" src=\"images/ttrss_logo.png\"
@@ -1019,7 +1021,7 @@ class Pref_Feeds extends Protected_Handler {
 			print_warning(T_sprintf("Already subscribed to <b>%s</b>.", $feed_url));
 			break;
 		case 4:
-			print_notice("Multiple feed URLs found.");
+			print_notice(__("Multiple feed URLs found."));
 
 			$feed_urls = get_feeds_from_html($feed_url);
 			break;
@@ -1316,6 +1318,8 @@ class Pref_Feeds extends Protected_Handler {
 			dojoType=\"dijit.MenuItem\">".__('Edit selected feeds')."</div>";
 		print "<div onclick=\"resetFeedOrder()\"
 			dojoType=\"dijit.MenuItem\">".__('Reset sort order')."</div>";
+		print "<div onclick=\"batchSubscribe()\"
+			dojoType=\"dijit.MenuItem\">".__('Batch subscribe')."</div>";
 		print "</div></div>";
 
 		if (get_pref($this->link, 'ENABLE_FEED_CATS')) {
@@ -1497,7 +1501,7 @@ class Pref_Feeds extends Protected_Handler {
 
 		print "</div>"; #pane
 
-		print "<div dojoType=\"dijit.layout.AccordionPane\" title=\"".__('Published & shared articles and generated feeds')."\">";
+		print "<div dojoType=\"dijit.layout.AccordionPane\" title=\"".__('Published & shared articles / Generated feeds')."\">";
 
 		print "<h3>" . __("Published articles and generated feeds") . "</h3>";
 

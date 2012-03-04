@@ -42,9 +42,6 @@
 	define('CACHE_DIR', 'cache');
 	// Local cache directory for RSS feed content.
 
-	define('TMP_DIRECTORY', '/tmp');
-	// Directory for temporary files
-
 	define('ICONS_DIR', "feed-icons");
 	define('ICONS_URL', "feed-icons");
 	// Local and URL path to the directory, where feed favicons are stored.
@@ -197,7 +194,8 @@
 	define('ARTICLE_BUTTON_PLUGINS', 'note,tweet,share,mail');
 	// Comma-separated list of additional article action button plugins
 	// to enable, like tweet button, etc.
-	// The following plugins are available: note, tweet, share, mail, readitlater
+	// The following plugins are available: note, tweet, share, mail
+	// More plugins: http://tt-rss.org/wiki/Plugins
 
 	define('CONFIG_VERSION', 25);
 	// Expected config version. Please update this option in config.php

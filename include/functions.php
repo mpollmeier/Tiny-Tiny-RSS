@@ -701,18 +701,66 @@
 
 					// First login ?
 					if (db_num_rows($result) == 0) {
-						$pwd_hash = encrypt_password(make_password(), $login);
+						$salt = substr(bin2hex(get_random_bytes(125)), 0, 250);
+						$pwd_hash = encrypt_password($password, $salt, true);
 
 						$query2 = "INSERT INTO ttrss_users
-								(login,access_level,last_login,created,pwd_hash)
-								VALUES ('$login', 0, null, NOW(), '$pwd_hash')";
+								(login,access_level,last_login,created,pwd_hash,salt)
+								VALUES ('$login', 0, null, NOW(), '$pwd_hash','$salt')";
 						db_query($link, $query2);
 					}
 				}
 
+			} else if (get_schema_version($link) > 87) {
+				$result = db_query($link, "SELECT salt FROM ttrss_users WHERE
+					login = '$login'");
+
+				if (db_num_rows($result) != 1) {
+					return false;
+				}
+
+				$salt = db_fetch_result($result, 0, "salt");
+
+				if ($salt == "") {
+
+					$query = "SELECT id,login,access_level,pwd_hash
+		            FROM ttrss_users WHERE
+						login = '$login' AND (pwd_hash = '$pwd_hash1' OR
+						pwd_hash = '$pwd_hash2')";
+
+					// verify and upgrade password to new salt base
+
+					$result = db_query($link, $query);
+
+					if (db_num_rows($result) == 1) {
+						// upgrade password to MODE2
+
+						$salt = substr(bin2hex(get_random_bytes(125)), 0, 250);
+						$pwd_hash = encrypt_password($password, $salt, true);
+
+						db_query($link, "UPDATE ttrss_users SET
+							pwd_hash = '$pwd_hash', salt = '$salt' WHERE login = '$login'");
+
+						$query = "SELECT id,login,access_level,pwd_hash
+			            FROM ttrss_users WHERE
+							login = '$login' AND pwd_hash = '$pwd_hash'";
+
+					} else {
+						return false;
+					}
+
+				} else {
+
+					$pwd_hash = encrypt_password($password, $salt, true);
+
+					$query = "SELECT id,login,access_level,pwd_hash
+			         FROM ttrss_users WHERE
+						login = '$login' AND pwd_hash = '$pwd_hash'";
+
+				}
 			} else {
 				$query = "SELECT id,login,access_level,pwd_hash
-	            FROM ttrss_users WHERE
+		         FROM ttrss_users WHERE
 					login = '$login' AND (pwd_hash = '$pwd_hash1' OR
 						pwd_hash = '$pwd_hash2')";
 			}
@@ -1799,14 +1847,6 @@
 	}
 
 	/**
-	 * Subscribes the user to the given feed
-	 *
-	 * @param resource $link       Database connection
-	 * @param string   $url        Feed URL to subscribe to
-	 * @param integer  $cat_id     Category ID the feed shall be added to
-	 * @param string   $auth_login (optional) Feed username
-	 * @param string   $auth_pass  (optional) Feed password
-	 *
 	 * @return integer Status code:
 	 *                 0 - OK, Feed already exists
 	 *                 1 - OK, Feed added
@@ -1818,7 +1858,7 @@
 	 *                 5 - Couldn't download the URL content.
 	 */
 	function subscribe_to_feed($link, $url, $cat_id = 0,
-			$auth_login = '', $auth_pass = '') {
+			$auth_login = '', $auth_pass = '', $need_auth = false) {
 
 		require_once "include/rssfuncs.php";
 
@@ -1833,7 +1873,7 @@
 
 		$has_oauth = db_fetch_result($result, 0, 'twitter_oauth');
 
-		if (!$has_oauth || strpos($url, '://api.twitter.com') === false) {
+		if (!$need_auth || !$has_oauth || strpos($url, '://api.twitter.com') === false) {
 			if (!fetch_file_contents($url, false, $auth_login, $auth_pass)) return 5;
 
 			if (url_is_html($url, $auth_login, $auth_pass)) {
@@ -2562,7 +2602,7 @@
 
 			$config = HTMLPurifier_Config::createDefault();
 
-			$allowed = "p,a[href],i,em,b,strong,code,pre,blockquote,br,img[src|alt|title|align|hspace],ul,ol,li,h1,h2,h3,h4,s,object[classid|type|id|name|width|height|codebase],param[name|value],table,tr,td";
+			$allowed = "p,a[href],i,em,b,strong,code,pre,blockquote,br,img[src|alt|title|align|hspace],ul,ol,li,h1,h2,h3,h4,s,object[classid|type|id|name|width|height|codebase],param[name|value],table,tr,td,span[class]";
 
 			$config->set('HTML.SafeObject', true);
 			@$config->set('HTML', 'Allowed', $allowed);
@@ -2573,6 +2613,8 @@
 			} else {
 				@$config->set('Cache', 'SerializerPath', "../" . CACHE_DIR . "/htmlpurifier");
 			}
+
+			$config->set('Filter.YouTube', true);
 
 			$purifier = new HTMLPurifier($config);
 		}
@@ -2632,7 +2674,7 @@
 
 		$node = $doc->getElementsByTagName('body')->item(0);
 
-		return $doc->saveXML($node);
+		return $doc->saveXML($node, LIBXML_NOEMPTYTAG);
 	}
 
 	/**
@@ -2642,19 +2684,19 @@
 	 * @param integer $limit The maximum number of articles by digest.
 	 * @return boolean Return false if digests are not enabled.
 	 */
-	function send_headlines_digests($link, $limit = 100, $debug = true) {
+	function send_headlines_digests($link, $debug = false) {
 
 		require_once 'lib/phpmailer/class.phpmailer.php';
 
 		$user_limit = 15; // amount of users to process (e.g. emails to send out)
-		$days = 1;
+		$limit = 1000; // maximum amount of headlines to include
 
-		if ($debug) _debug("Sending digests, batch of max $user_limit users, days = $days, headline limit = $limit");
+		if ($debug) _debug("Sending digests, batch of max $user_limit users, headline limit = $limit");
 
 		if (DB_TYPE == "pgsql") {
-			$interval_query = "last_digest_sent < NOW() - INTERVAL '$days days'";
+			$interval_query = "last_digest_sent < NOW() - INTERVAL '1 days'";
 		} else if (DB_TYPE == "mysql") {
-			$interval_query = "last_digest_sent < DATE_SUB(NOW(), INTERVAL $days DAY)";
+			$interval_query = "last_digest_sent < DATE_SUB(NOW(), INTERVAL 1 DAY)";
 		}
 
 		$result = db_query($link, "SELECT id,email FROM ttrss_users
@@ -2663,58 +2705,71 @@
 		while ($line = db_fetch_assoc($result)) {
 
 			if (get_pref($link, 'DIGEST_ENABLE', $line['id'], false)) {
-				print "Sending digest for UID:" . $line['id'] . " - " . $line["email"] . " ... ";
+				$preferred_ts = strtotime(get_pref($link, 'DIGEST_PREFERRED_TIME', $line['id'], '00:00'));
 
-				$do_catchup = get_pref($link, 'DIGEST_CATCHUP', $line['id'], false);
+				// try to send digests within 2 hours of preferred time
+				if ($preferred_ts && time() >= $preferred_ts &&
+						time() - $preferred_ts <= 7200) {
 
-				$tuple = prepare_headlines_digest($link, $line["id"], $days, $limit);
-				$digest = $tuple[0];
-				$headlines_count = $tuple[1];
-				$affected_ids = $tuple[2];
-				$digest_text = $tuple[3];
+					if ($debug) print "Sending digest for UID:" . $line['id'] . " - " . $line["email"] . " ... ";
 
-				if ($headlines_count > 0) {
+					$do_catchup = get_pref($link, 'DIGEST_CATCHUP', $line['id'], false);
 
-					$mail = new PHPMailer();
+					global $tz_offset;
 
-					$mail->PluginDir = "lib/phpmailer/";
-					$mail->SetLanguage("en", "lib/phpmailer/language/");
+					// reset tz_offset global to prevent tz cache clash between users
+					$tz_offset = -1;
 
-					$mail->CharSet = "UTF-8";
+					$tuple = prepare_headlines_digest($link, $line["id"], 1, $limit);
+					$digest = $tuple[0];
+					$headlines_count = $tuple[1];
+					$affected_ids = $tuple[2];
+					$digest_text = $tuple[3];
 
-					$mail->From = SMTP_FROM_ADDRESS;
-					$mail->FromName = SMTP_FROM_NAME;
-					$mail->AddAddress($line["email"], $line["login"]);
+					if ($headlines_count > 0) {
 
-					if (SMTP_HOST) {
-						$mail->Host = SMTP_HOST;
-						$mail->Mailer = "smtp";
-						$mail->SMTPAuth = SMTP_LOGIN != '';
-						$mail->Username = SMTP_LOGIN;
-						$mail->Password = SMTP_PASSWORD;
+						$mail = new PHPMailer();
+
+						$mail->PluginDir = "lib/phpmailer/";
+						$mail->SetLanguage("en", "lib/phpmailer/language/");
+
+						$mail->CharSet = "UTF-8";
+
+						$mail->From = SMTP_FROM_ADDRESS;
+						$mail->FromName = SMTP_FROM_NAME;
+						$mail->AddAddress($line["email"], $line["login"]);
+
+						if (SMTP_HOST) {
+							$mail->Host = SMTP_HOST;
+							$mail->Mailer = "smtp";
+							$mail->SMTPAuth = SMTP_LOGIN != '';
+							$mail->Username = SMTP_LOGIN;
+							$mail->Password = SMTP_PASSWORD;
+						}
+
+						$mail->IsHTML(true);
+						$mail->Subject = DIGEST_SUBJECT;
+						$mail->Body = $digest;
+						$mail->AltBody = $digest_text;
+
+						$rc = $mail->Send();
+
+						if (!$rc && $debug) print "ERROR: " . $mail->ErrorInfo;
+
+						if ($debug) print "RC=$rc\n";
+
+						if ($rc && $do_catchup) {
+							if ($debug) print "Marking affected articles as read...\n";
+							catchupArticlesById($link, $affected_ids, 0, $line["id"]);
+						}
+					} else {
+						if ($debug) print "No headlines\n";
 					}
 
-					$mail->IsHTML(true);
-					$mail->Subject = DIGEST_SUBJECT;
-					$mail->Body = $digest;
-					$mail->AltBody = $digest_text;
+					db_query($link, "UPDATE ttrss_users SET last_digest_sent = NOW()
+						WHERE id = " . $line["id"]);
 
-					$rc = $mail->Send();
-
-					if (!$rc) print "ERROR: " . $mail->ErrorInfo;
-
-					print "RC=$rc\n";
-
-					if ($rc && $do_catchup) {
-						print "Marking affected articles as read...\n";
-						catchupArticlesById($link, $affected_ids, 0, $line["id"]);
-					}
-				} else {
-					print "No headlines\n";
 				}
-
-				db_query($link, "UPDATE ttrss_users SET last_digest_sent = NOW()
-					WHERE id = " . $line["id"]);
 			}
 		}
 
@@ -2722,7 +2777,7 @@
 
 	}
 
-	function prepare_headlines_digest($link, $user_id, $days = 1, $limit = 100) {
+	function prepare_headlines_digest($link, $user_id, $days = 1, $limit = 1000) {
 
 		require_once "lib/MiniTemplator.class.php";
 
@@ -2732,11 +2787,14 @@
 		$tpl->readTemplateFromFile("templates/digest_template_html.txt");
 		$tpl_t->readTemplateFromFile("templates/digest_template.txt");
 
-		$tpl->setVariable('CUR_DATE', date('Y/m/d'));
-		$tpl->setVariable('CUR_TIME', date('G:i'));
+		$user_tz_string = get_pref($link, 'USER_TIMEZONE', $user_id);
+		$local_ts = convert_timestamp(time(), 'UTC', $user_tz_string);
 
-		$tpl_t->setVariable('CUR_DATE', date('Y/m/d'));
-		$tpl_t->setVariable('CUR_TIME', date('G:i'));
+		$tpl->setVariable('CUR_DATE', date('Y/m/d', $local_ts));
+		$tpl->setVariable('CUR_TIME', date('G:i', $local_ts));
+
+		$tpl_t->setVariable('CUR_DATE', date('Y/m/d', $local_ts));
+		$tpl_t->setVariable('CUR_TIME', date('G:i', $local_ts));
 
 		$affected_ids = array();
 
@@ -2748,20 +2806,25 @@
 
 		$result = db_query($link, "SELECT ttrss_entries.title,
 				ttrss_feeds.title AS feed_title,
+				ttrss_feed_categories.title AS cat_title,
 				date_updated,
 				ttrss_user_entries.ref_id,
 				link,
-				SUBSTRING(content, 1, 120) AS excerpt,
+				score,
+				content,
 				".SUBSTRING_FOR_DATE."(last_updated,1,19) AS last_updated
 			FROM
 				ttrss_user_entries,ttrss_entries,ttrss_feeds
+			LEFT JOIN
+				ttrss_feed_categories ON (cat_id = ttrss_feed_categories.id)
 			WHERE
 				ref_id = ttrss_entries.id AND feed_id = ttrss_feeds.id
 				AND include_in_digest = true
 				AND $interval_query
 				AND ttrss_user_entries.owner_uid = $user_id
 				AND unread = true
-			ORDER BY ttrss_feeds.title, date_updated DESC
+				AND score >= 0
+			ORDER BY ttrss_feed_categories.title, ttrss_feeds.title, score DESC, date_updated DESC
 			LIMIT $limit");
 
 		$cur_feed_title = "";
@@ -2783,12 +2846,26 @@
 			$updated = make_local_datetime($link, $line['last_updated'], false,
 				$user_id);
 
+/*			if ($line["score"] != 0) {
+				if ($line["score"] > 0) $line["score"] = '+' . $line["score"];
+
+				$line["title"] .= " (".$line['score'].")";
+			} */
+
+			if (get_pref($link, 'ENABLE_FEED_CATS', $user_id)) {
+				if (!$line['cat_title']) $line['cat_title'] = __("Uncategorized");
+
+				$line['feed_title'] = $line['cat_title'] . " / " . $line['feed_title'];
+			}
+
 			$tpl->setVariable('FEED_TITLE', $line["feed_title"]);
 			$tpl->setVariable('ARTICLE_TITLE', $line["title"]);
 			$tpl->setVariable('ARTICLE_LINK', $line["link"]);
 			$tpl->setVariable('ARTICLE_UPDATED', $updated);
 			$tpl->setVariable('ARTICLE_EXCERPT',
-				truncate_string(strip_tags($line["excerpt"]), 100));
+				truncate_string(strip_tags($line["content"]), 300));
+//			$tpl->setVariable('ARTICLE_CONTENT',
+//				strip_tags($article_content));
 
 			$tpl->addBlock('article');
 
@@ -3446,21 +3523,15 @@
 		return $url_path;
 	} // function add_feed_url
 
-	/**
-	 * Encrypt a password in SHA1.
-	 *
-	 * @param string $pass The password to encrypt.
-	 * @param string $login A optionnal login.
-	 * @return string The encrypted password.
-	 */
-	function encrypt_password($pass, $login = '') {
-		if ($login) {
-			return "SHA1X:" . sha1("$login:$pass");
+	function encrypt_password($pass, $salt = '', $mode2 = false) {
+		if ($salt && $mode2) {
+			return "MODE2:" . hash('sha256', $salt . $pass);
+		} else if ($salt) {
+			return "SHA1X:" . sha1("$salt:$pass");
 		} else {
 			return "SHA1:" . sha1($pass);
 		}
 	} // function encrypt_password
-
 
 	function sanitize_article_content($text) {
 		# we don't support CDATA sections in articles, they break our own escaping
@@ -4386,13 +4457,8 @@
 
 	function api_get_headlines($link, $feed_id, $limit, $offset,
 				$filter, $is_cat, $show_excerpt, $show_content, $view_mode, $order,
-				$include_attachments, $since_id) {
-
-			/* do not rely on params below */
-
-			$search = db_escape_string($_REQUEST["search"]);
-			$search_mode = db_escape_string($_REQUEST["search_mode"]);
-			$match_on = db_escape_string($_REQUEST["match_on"]);
+				$include_attachments, $since_id,
+				$search = "", $search_mode = "", $match_on = "") {
 
 			$qfh_ret = queryFeedHeadlines($link, $feed_id, $limit,
 				$view_mode, $is_cat, $search, $search_mode, $match_on,
@@ -4847,7 +4913,7 @@
 
 	}
 
-	function rewrite_urls($line) {
+/*	function rewrite_urls($line) {
 		global $url_regex;
 
 		$urls = null;
@@ -4856,68 +4922,121 @@
 			"<a target=\"_blank\" href=\"\\1\">\\1</a>", $line);
 
 		return $result;
+	} */
+
+	function rewrite_urls($html) {
+		libxml_use_internal_errors(true);
+
+		$charset_hack = '<head>
+			<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+		</head>';
+
+		$doc = new DOMDocument();
+		$doc->loadHTML($charset_hack . $html);
+		$xpath = new DOMXPath($doc);
+
+		$entries = $xpath->query('//*/text()');
+
+		foreach ($entries as $entry) {
+			if (strstr($entry->wholeText, "://") !== false) {
+				$text = preg_replace("/((?<!=.)((http|https|ftp)+):\/\/[^ ,!]+)/i",
+					"<a target=\"_blank\" href=\"\\1\">\\1</a>", $entry->wholeText);
+
+				if ($text != $entry->wholeText) {
+					$cdoc = new DOMDocument();
+					$cdoc->loadHTML($charset_hack . $text);
+
+
+					foreach ($cdoc->childNodes as $cnode) {
+						$cnode = $doc->importNode($cnode, true);
+
+						if ($cnode) {
+							$entry->parentNode->insertBefore($cnode);
+						}
+					}
+
+					$entry->parentNode->removeChild($entry);
+
+				}
+			}
+		}
+
+		$node = $doc->getElementsByTagName('body')->item(0);
+
+		// http://tt-rss.org/forum/viewtopic.php?f=1&t=970
+		if ($node)
+			return $doc->saveXML($node, LIBXML_NOEMPTYTAG);
+		else
+			return $html;
 	}
 
 	function filter_to_sql($filter) {
 		$query = "";
 
-		if (DB_TYPE == "pgsql")
-			$reg_qpart = "~";
-		else
-			$reg_qpart = "REGEXP";
+		$regexp_valid = preg_match('/' . $filter['reg_exp'] . '/',
+			$filter['reg_exp']) !== FALSE;
 
-		switch ($filter["type"]) {
-			case "title":
-				$query = "LOWER(ttrss_entries.title) $reg_qpart LOWER('".
-					$filter['reg_exp'] . "')";
-				break;
-			case "content":
-				$query = "LOWER(ttrss_entries.content) $reg_qpart LOWER('".
-					$filter['reg_exp'] . "')";
-				break;
-			case "both":
-				$query = "LOWER(ttrss_entries.title) $reg_qpart LOWER('".
-					$filter['reg_exp'] . "') OR LOWER(" .
-					"ttrss_entries.content) $reg_qpart LOWER('" . $filter['reg_exp'] . "')";
-				break;
-			case "tag":
-				$query = "LOWER(ttrss_user_entries.tag_cache) $reg_qpart LOWER('".
-					$filter['reg_exp'] . "')";
-				break;
-			case "link":
-				$query = "LOWER(ttrss_entries.link) $reg_qpart LOWER('".
-					$filter['reg_exp'] . "')";
-				break;
-			case "date":
+		if ($regexp_valid) {
 
-				if ($filter["filter_param"] == "before")
-					$cmp_qpart = "<";
-				else
-					$cmp_qpart = ">=";
+			if (DB_TYPE == "pgsql")
+				$reg_qpart = "~";
+			else
+				$reg_qpart = "REGEXP";
 
-				$timestamp = date("Y-m-d H:N:s", strtotime($filter["reg_exp"]));
-				$query = "ttrss_entries.date_entered $cmp_qpart '$timestamp'";
-				break;
-			case "author":
-				$query = "LOWER(ttrss_entries.author) $reg_qpart LOWER('".
-					$filter['reg_exp'] . "')";
-				break;
-		}
+			switch ($filter["type"]) {
+				case "title":
+					$query = "LOWER(ttrss_entries.title) $reg_qpart LOWER('".
+						$filter['reg_exp'] . "')";
+					break;
+				case "content":
+					$query = "LOWER(ttrss_entries.content) $reg_qpart LOWER('".
+						$filter['reg_exp'] . "')";
+					break;
+				case "both":
+					$query = "LOWER(ttrss_entries.title) $reg_qpart LOWER('".
+						$filter['reg_exp'] . "') OR LOWER(" .
+						"ttrss_entries.content) $reg_qpart LOWER('" . $filter['reg_exp'] . "')";
+					break;
+				case "tag":
+					$query = "LOWER(ttrss_user_entries.tag_cache) $reg_qpart LOWER('".
+						$filter['reg_exp'] . "')";
+					break;
+				case "link":
+					$query = "LOWER(ttrss_entries.link) $reg_qpart LOWER('".
+						$filter['reg_exp'] . "')";
+					break;
+				case "date":
 
-		if ($filter["inverse"])
-			$query = "NOT ($query)";
+					if ($filter["filter_param"] == "before")
+						$cmp_qpart = "<";
+					else
+						$cmp_qpart = ">=";
 
-		if ($query) {
-			if (DB_TYPE == "pgsql") {
-				$query = " ($query) AND ttrss_entries.date_entered > NOW() - INTERVAL '14 days'";
-			} else {
-				$query = " ($query) AND ttrss_entries.date_entered > DATE_SUB(NOW(), INTERVAL 14 DAY)";
+					$timestamp = date("Y-m-d H:N:s", strtotime($filter["reg_exp"]));
+					$query = "ttrss_entries.date_entered $cmp_qpart '$timestamp'";
+					break;
+				case "author":
+					$query = "LOWER(ttrss_entries.author) $reg_qpart LOWER('".
+						$filter['reg_exp'] . "')";
+					break;
 			}
-			$query .= " AND ";
+
+			if ($filter["inverse"])
+				$query = "NOT ($query)";
+
+			if ($query) {
+				if (DB_TYPE == "pgsql") {
+					$query = " ($query) AND ttrss_entries.date_entered > NOW() - INTERVAL '14 days'";
+				} else {
+					$query = " ($query) AND ttrss_entries.date_entered > DATE_SUB(NOW(), INTERVAL 14 DAY)";
+				}
+				$query .= " AND ";
+			}
+
+			return $query;
+		} else {
+			return false;
 		}
-
-
-		return $query;
 	}
 
 	// Status codes:
@@ -5335,4 +5454,16 @@
 		}
 	}
 
+	function get_random_bytes($length) {
+		if (function_exists('openssl_random_pseudo_bytes')) {
+			return openssl_random_pseudo_bytes($length);
+		} else {
+			$output = "";
+
+			for ($i = 0; $i < $length; $i++)
+				$output .= chr(mt_rand(0, 255));
+
+			return $output;
+		}
+	}
 ?>

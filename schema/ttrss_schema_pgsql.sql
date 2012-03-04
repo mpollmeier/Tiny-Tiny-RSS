@@ -41,6 +41,7 @@ create table ttrss_users (id serial not null primary key,
 	full_name varchar(250) not null default '',
 	email_digest boolean not null default false,
 	last_digest_sent timestamp default null,
+	salt varchar(250) not null default '',
 	twitter_oauth text default null,
 	created timestamp default null);
 
@@ -228,7 +229,7 @@ create index ttrss_tags_post_int_id_idx on ttrss_tags(post_int_id);
 
 create table ttrss_version (schema_version int not null);
 
-insert into ttrss_version values (87);
+insert into ttrss_version values (89);
 
 create table ttrss_enclosures (id serial not null primary key,
 	content_url text not null,
@@ -352,6 +353,8 @@ insert into ttrss_prefs (pref_name,type_id,def_value,short_desc,section_id,help_
 insert into ttrss_prefs (pref_name,type_id,def_value,short_desc,section_id) values('_MOBILE_BROWSE_CATS', 1, 'true', '', 1);
 
 insert into ttrss_prefs (pref_name,type_id,def_value,short_desc,section_id,help_text) values('SSL_CERT_SERIAL', 2, '', 'Login with an SSL certificate',3, 'Click to register your SSL client certificate with tt-rss');
+
+insert into ttrss_prefs (pref_name,type_id,def_value,short_desc,section_id,help_text) values('DIGEST_PREFERRED_TIME', 2, '00:00', 'Try to send digests around specified time', 1, 'Uses UTC timezone');
 
 create table ttrss_user_prefs (
 	owner_uid integer not null references ttrss_users(id) ON DELETE CASCADE,

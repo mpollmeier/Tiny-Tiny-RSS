@@ -284,12 +284,13 @@ class Dlg extends Protected_Handler {
 				" <input
 					placeHolder=\"".__("Password")."\"
 					dojoType=\"dijit.form.TextBox\" type='password'
-					style=\"width : 10em;\" name='pass'\">
+					style=\"width : 10em;\" name='pass'\">".
+				" <p class='insensitive'>".__("OAuth will be used automatically for Twitter feeds.")."</p>
 			</div></div>";
 
 
 		print "<div style=\"clear : both\">
-			<input type=\"checkbox\" dojoType=\"dijit.form.CheckBox\" id=\"feedDlg_loginCheck\"
+			<input type=\"checkbox\" name=\"need_auth\" dojoType=\"dijit.form.CheckBox\" id=\"feedDlg_loginCheck\"
 					onclick='checkboxToggleElement(this, \"feedDlg_loginContainer\")'>
 				<label for=\"feedDlg_loginCheck\">".
 				__('This feed requires authentication.')."</div>";
@@ -975,6 +976,55 @@ class Dlg extends Protected_Handler {
 
 		print "</div>";
 
+	}
+
+	function batchSubscribe() {
+		print "<input dojoType=\"dijit.form.TextBox\" style=\"display : none\" name=\"op\" value=\"rpc\">";
+		print "<input dojoType=\"dijit.form.TextBox\" style=\"display : none\" name=\"method\" value=\"batchaddfeeds\">";
+
+		print "<table width='100%'><tr><td>
+			".__("Add one valid RSS feed per line (no feed detection is done)")."
+		</td><td align='right'>";
+		if (get_pref($this->link, 'ENABLE_FEED_CATS')) {
+			print __('Place in category:') . " ";
+			print_feed_cat_select($this->link, "cat", false, 'dojoType="dijit.form.Select"');
+		}
+		print "</td></tr><tr><td colspan='2'>";
+		print "<textarea
+			style='font-size : 12px; width : 100%; height: 200px;'
+			placeHolder=\"".__("Feeds to subscribe, One per line")."\"
+			dojoType=\"dijit.form.SimpleTextarea\" required=\"1\" name=\"feeds\"></textarea>";
+
+		print "</td></tr><tr><td colspan='2'>";
+
+		print "<div id='feedDlg_loginContainer' style='display : none'>
+				" .
+				" <input dojoType=\"dijit.form.TextBox\" name='login'\"
+					placeHolder=\"".__("Login")."\"
+					style=\"width : 10em;\"> ".
+				" <input
+					placeHolder=\"".__("Password")."\"
+					dojoType=\"dijit.form.TextBox\" type='password'
+					style=\"width : 10em;\" name='pass'\">".
+				" <p class='insensitive'>".__("OAuth will be used automatically for Twitter feeds.")."</p>
+				</div>";
+
+		print "</td></tr><tr><td colspan='2'>";
+
+		print "<div style=\"clear : both\">
+			<input type=\"checkbox\" name=\"need_auth\" dojoType=\"dijit.form.CheckBox\" id=\"feedDlg_loginCheck\"
+					onclick='checkboxToggleElement(this, \"feedDlg_loginContainer\")'>
+				<label for=\"feedDlg_loginCheck\">".
+				__('Feeds require authentication.')."</div>";
+
+		print "</form>";
+
+		print "</td></tr></table>";
+
+		print "<div class=\"dlgButtons\">
+			<button dojoType=\"dijit.form.Button\" onclick=\"return dijit.byId('batchSubDlg').execute()\">".__('Subscribe')."</button>
+			<button dojoType=\"dijit.form.Button\" onclick=\"return dijit.byId('batchSubDlg').hide()\">".__('Cancel')."</button>
+			</div>";
 	}
 
 }
