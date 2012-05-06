@@ -391,6 +391,10 @@ function view(id) {
 
 		console.log(query);
 
+		if (article_is_unread) {
+			decrementFeedCounter(getActiveFeedId(), activeFeedIsCat());
+		}
+
 		new Ajax.Request("backend.php", {
 			parameters: query,
 			onComplete: function(transport) {
@@ -493,13 +497,22 @@ function moveToPost(mode) {
 		}
 
 		if (active_post_id == false) {
-			next_id = getFirstVisibleHeadlineId();
-			prev_id = getLastVisibleHeadlineId();
+			next_id = rows[0];
+			prev_id = rows[rows.length-1]
 		} else {
 			for (var i = 0; i < rows.length; i++) {
 				if (rows[i] == active_post_id) {
-					prev_id = rows[i-1];
-					next_id = rows[i+1];
+
+					// Account for adjacent identical article ids.
+					if (i > 0) prev_id = rows[i-1];
+
+					for (var j = i+1; j < rows.length; j++) {
+						if (rows[j] != active_post_id) {
+							next_id = rows[j];
+							break;
+						}
+					}
+					break;
 				}
 			}
 		}
@@ -1601,6 +1614,7 @@ function cdmClicked(event, id) {
 				toggleSelected(id);
 
 				var elem = $("RROW-" + id);
+				var article_is_unread = elem.hasClassName("Unread");
 
 				if (elem)
 					elem.removeClassName("Unread");
@@ -1614,6 +1628,10 @@ function cdmClicked(event, id) {
 				}
 
 				active_post_id = id;
+
+				if (article_is_unread) {
+					decrementFeedCounter(getActiveFeedId(), activeFeedIsCat());
+				}
 
 				var query = "?op=rpc&method=catchupSelected" +
 					"&cmode=0&ids=" + param_escape(id);
@@ -1629,6 +1647,14 @@ function cdmClicked(event, id) {
 
 		} else {
 			toggleSelected(id, true);
+
+			var elem = $("RROW-" + id);
+			var article_is_unread = elem.hasClassName("Unread");
+
+			if (article_is_unread) {
+				decrementFeedCounter(getActiveFeedId(), activeFeedIsCat());
+			}
+
 			toggleUnread(id, 0, false);
 			zoomToArticle(event, id);
 		}

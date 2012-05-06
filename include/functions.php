@@ -374,7 +374,33 @@
 			$favicon_url = get_favicon_url($site_url);
 
 			if ($favicon_url) {
-				$contents = fetch_file_contents($favicon_url, "image");
+				// Limiting to "image" type misses those served with text/plain
+				$contents = fetch_file_contents($favicon_url); // , "image");
+
+				if ($contents) {
+					// Crude image type matching.
+					// Patterns gleaned from the file(1) source code.
+					if (preg_match('/^\x00\x00\x01\x00/', $contents)) {
+						// 0       string  \000\000\001\000        MS Windows icon resource
+						//error_log("check_feed_favicon: favicon_url=$favicon_url isa MS Windows icon resource");
+					}
+					elseif (preg_match('/^GIF8/', $contents)) {
+						// 0       string          GIF8            GIF image data
+						//error_log("check_feed_favicon: favicon_url=$favicon_url isa GIF image");
+					}
+					elseif (preg_match('/^\x89PNG\x0d\x0a\x1a\x0a/', $contents)) {
+						// 0       string          \x89PNG\x0d\x0a\x1a\x0a         PNG image data
+						//error_log("check_feed_favicon: favicon_url=$favicon_url isa PNG image");
+					}
+					elseif (preg_match('/^\xff\xd8/', $contents)) {
+						// 0       beshort         0xffd8          JPEG image data
+						//error_log("check_feed_favicon: favicon_url=$favicon_url isa JPG image");
+					}
+					else {
+						//error_log("check_feed_favicon: favicon_url=$favicon_url isa UNKNOWN type");
+						$contents = "";
+					}
+				}
 
 				if ($contents) {
 					$fp = @fopen($icon_file, "w");
@@ -811,6 +837,11 @@
 
 			$_SESSION["uid"] = 1;
 			$_SESSION["name"] = "admin";
+			$_SESSION["access_level"] = 10;
+
+			if (!$_SESSION["csrf_token"]) {
+				$_SESSION["csrf_token"] = sha1(uniqid(rand(), true));
+			}
 
 			$_SESSION["ip_address"] = $_SERVER["REMOTE_ADDR"];
 
@@ -4411,7 +4442,7 @@
 
 			if ($cat_id == -4 || $cat_id == -3) {
 				$result = db_query($link, "SELECT
-					id, feed_url, cat_id, title, ".
+					id, feed_url, cat_id, title, order_id, ".
 						SUBSTRING_FOR_DATE."(last_updated,1,19) AS last_updated
 						FROM ttrss_feeds WHERE owner_uid = " . $_SESSION["uid"] .
 						" ORDER BY cat_id, title " . $limit_qpart);
@@ -4423,7 +4454,7 @@
 					$cat_qpart = "cat_id IS NULL";
 
 				$result = db_query($link, "SELECT
-					id, feed_url, cat_id, title, ".
+					id, feed_url, cat_id, title, order_id, ".
 						SUBSTRING_FOR_DATE."(last_updated,1,19) AS last_updated
 						FROM ttrss_feeds WHERE
 						$cat_qpart AND owner_uid = " . $_SESSION["uid"] .
@@ -4445,7 +4476,8 @@
 							"unread" => (int)$unread,
 							"has_icon" => $has_icon,
 							"cat_id" => (int)$line["cat_id"],
-							"last_updated" => strtotime($line["last_updated"])
+							"last_updated" => strtotime($line["last_updated"]),
+							"order_id" => (int) $line["order_id"],
 						);
 
 					array_push($feeds, $row);
@@ -4509,6 +4541,8 @@
 				if ($labels["no-labels"] == 1) $labels = array();
 
 				$headline_row["labels"] = $labels;
+
+				$headline_row["feed_title"] = $line["feed_title"];
 
 				array_push($headlines, $headline_row);
 			}
@@ -4802,7 +4836,9 @@
 	 * @return string Absolute URL
 	 */
 	function rewrite_relative_url($url, $rel_url) {
-		if (strpos($rel_url, "://") !== false) {
+		if (strpos($rel_url, "magnet:") === 0) {
+			return $rel_url;
+		} else if (strpos($rel_url, "://") !== false) {
 			return $rel_url;
 		} else if (strpos($rel_url, "/") === 0)
 		{

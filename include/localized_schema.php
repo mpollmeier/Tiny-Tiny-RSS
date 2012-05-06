@@ -1,4 +1,4 @@
-<?php # This file has been generated at:  Mon Jan 30 16:39:34 MSK 2012
+<?php # This file has been generated at:  Thu Mar 29 15:07:22 MSK 2012
 
 __("Title");
 __("Title or Content");
@@ -20,7 +20,7 @@ __("Advanced");
 
 __('This option is useful when you are reading several planet-type aggregators with partially colliding userbase. When disabled, it forces same posts from different feeds to appear only once.');
 __('Display expanded list of feed articles, instead of separate displays for headlines and article content');
-__('When "Mark as read" button is clicked in toolbar, automatically open next feed with unread articles.');
+__('Automatically open next feed with unread articles after marking one as read');
 __('This option enables sending daily digest of new (and unread) headlines on your configured e-mail address');
 __('This option enables marking articles as read automatically while you scroll article list.');
 __('Strip all but most common HTML tags when reading articles.');
@@ -29,7 +29,7 @@ __('When this option is enabled, headlines in Special feeds and Labels are group
 __('Use feed-specified date to sort headlines instead of local import date.');
 __('Customize CSS stylesheet to your liking');
 __('Click to register your SSL client certificate with tt-rss');
-__('Uses server timezone');
+__('Uses UTC timezone');
 __('Purge old posts after this number of days (0 - disables)');
 __('Default interval between feed updates');
 __('Amount of articles to display at once');

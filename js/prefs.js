@@ -970,7 +970,7 @@ function validatePrefsReset() {
 
 function pref_hotkey_handler(e) {
 	try {
-		if (e.target.nodeName == "INPUT") return;
+		if (e.target.nodeName == "INPUT" || e.target.nodeName == "TEXTAREA") return;
 
 		var keycode = false;
 		var shift_key = false;
@@ -1632,6 +1632,21 @@ function resetCatOrder() {
 
 	} catch (e) {
 		exception_error("resetCatOrder");
+	}
+}
+
+function toggleHiddenFeedCats() {
+	try {
+		notify_progress("Loading, please wait...");
+
+		new Ajax.Request("backend.php", {
+			parameters: "?op=pref-feeds&method=togglehiddenfeedcats",
+			onComplete: function(transport) {
+		  		updateFeedList();
+			} });
+
+	} catch (e) {
+		exception_error("toggleHiddenFeedCats");
 	}
 }
 

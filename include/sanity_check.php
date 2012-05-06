@@ -6,7 +6,7 @@
 	} else {
 
 		define('EXPECTED_CONFIG_VERSION', 25);
-		define('SCHEMA_VERSION', 89);
+		define('SCHEMA_VERSION', 91);
 
 		require_once "config.php";
 		require_once "sanity_config.php";
@@ -100,7 +100,11 @@
 		}
 
 		if (!function_exists("mb_strlen")) {
-			$err_msg = "PHP support for mbstring functions is required, but was not found.";
+			$err_msg = "PHP support for mbstring functions is required but was not found.";
+		}
+
+		if (!function_exists("hash")) {
+			$err_msg = "PHP support for hash() function is required but was not found.";
 		}
 
 		if (!function_exists("ctype_lower")) {
