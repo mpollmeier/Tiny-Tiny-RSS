@@ -209,33 +209,12 @@
 		}
 	}
 
-	function update_rss_feed($link, $feed, $ignore_daemon = false, $no_cache = false) {
-
-		global $memcache;
-
-		/* Update all feeds with the same URL to utilize memcache */
-
-		if ($memcache) {
-			$result = db_query($link, "SELECT f1.id
-				FROM ttrss_feeds AS f1, ttrss_feeds AS f2
-				WHERE	f2.feed_url = f1.feed_url AND f2.id = '$feed'");
-
-			while ($line = db_fetch_assoc($result)) {
-				update_rss_feed_real($link, $line["id"], $ignore_daemon, $no_cache);
-			}
-		} else {
-			update_rss_feed_real($link, $feed, $ignore_daemon, $no_cache);
-		}
-	}
-
-	function update_rss_feed_real($link, $feed, $ignore_daemon = false, $no_cache = false,
+	function update_rss_feed($link, $feed, $ignore_daemon = false, $no_cache = false,
 		$override_url = false) {
 
 		require_once "lib/simplepie/simplepie.inc";
 		require_once "lib/magpierss/rss_fetch.inc";
 		require_once 'lib/magpierss/rss_utils.inc';
-
-		global $memcache;
 
 		$debug_enabled = defined('DAEMON_EXTENDED_DEBUG') || $_REQUEST['xdebug'];
 
@@ -334,62 +313,47 @@
 			_debug("update_rss_feed: fetching [$fetch_url]...");
 		}
 
-		$obj_id = md5("FDATA:$use_simplepie:$fetch_url");
+		// Ignore cache if new feed or manual update.
+		$cache_age = (is_null($last_updated) || $last_updated == '1970-01-01 00:00:00') ?
+			-1 : get_feed_update_interval($link, $feed) * 60;
 
-		if ($memcache && $obj = $memcache->get($obj_id)) {
+		if ($update_method == 3) {
+			$rss = fetch_twitter_rss($link, $fetch_url, $owner_uid);
+		} else if ($update_method == 1) {
+
+			define('MAGPIE_CACHE_AGE', $cache_age);
+			define('MAGPIE_CACHE_ON', !$no_cache);
+			define('MAGPIE_FETCH_TIME_OUT', 60);
+			define('MAGPIE_CACHE_DIR', CACHE_DIR . "/magpie");
+
+			$rss = @fetch_rss($fetch_url);
+		} else {
+			$simplepie_cache_dir = CACHE_DIR . "/simplepie";
+
+			if (!is_dir($simplepie_cache_dir)) {
+				mkdir($simplepie_cache_dir);
+			}
+
+			$rss = new SimplePie();
+			$rss->set_useragent(SELF_USER_AGENT);
+#			$rss->set_timeout(10);
+			$rss->set_feed_url($fetch_url);
+			$rss->set_output_encoding('UTF-8');
+			//$rss->force_feed(true);
 
 			if ($debug_enabled) {
-				_debug("update_rss_feed: data found in memcache.");
+				_debug("feed update interval (sec): " .
+					get_feed_update_interval($link, $feed)*60);
 			}
 
-			$rss = $obj;
+			$rss->enable_cache(!$no_cache);
 
-		} else {
-
-			// Ignore cache if new feed or manual update.
-			$cache_age = (is_null($last_updated) || $last_updated == '1970-01-01 00:00:00') ?
-				-1 : get_feed_update_interval($link, $feed) * 60;
-
-			if ($update_method == 3) {
-				$rss = fetch_twitter_rss($link, $fetch_url, $owner_uid);
-			} else if ($update_method == 1) {
-
-				define('MAGPIE_CACHE_AGE', $cache_age);
-				define('MAGPIE_CACHE_ON', !$no_cache);
-				define('MAGPIE_FETCH_TIME_OUT', 60);
-				define('MAGPIE_CACHE_DIR', CACHE_DIR . "/magpie");
-
-				$rss = @fetch_rss($fetch_url);
-			} else {
-				$simplepie_cache_dir = CACHE_DIR . "/simplepie";
-
-				if (!is_dir($simplepie_cache_dir)) {
-					mkdir($simplepie_cache_dir);
-				}
-
-				$rss = new SimplePie();
-				$rss->set_useragent(SELF_USER_AGENT);
-	#			$rss->set_timeout(10);
-				$rss->set_feed_url($fetch_url);
-				$rss->set_output_encoding('UTF-8');
-				//$rss->force_feed(true);
-
-				if ($debug_enabled) {
-					_debug("feed update interval (sec): " .
-						get_feed_update_interval($link, $feed)*60);
-				}
-
-				$rss->enable_cache(!$no_cache);
-
-				if (!$no_cache) {
-					$rss->set_cache_location($simplepie_cache_dir);
-					$rss->set_cache_duration($cache_age);
-				}
-
-				$rss->init();
+			if (!$no_cache) {
+				$rss->set_cache_location($simplepie_cache_dir);
+				$rss->set_cache_duration($cache_age);
 			}
 
-			if ($memcache && $rss) $memcache->add($obj_id, $rss, 0, 300);
+			$rss->init();
 		}
 
 //		print_r($rss);
@@ -414,12 +378,22 @@
 
 //			db_query($link, "BEGIN");
 
-			$result = db_query($link, "SELECT title,icon_url,site_url,owner_uid
+			if (DB_TYPE == "pgsql") {
+				$favicon_interval_qpart = "favicon_last_checked < NOW() - INTERVAL '12 hour'";
+			} else {
+				$favicon_interval_qpart = "favicon_last_checked < DATE_SUB(NOW(), INTERVAL 12 HOUR)";
+			}
+
+			$result = db_query($link, "SELECT title,icon_url,site_url,owner_uid,
+				(favicon_last_checked IS NULL OR $favicon_interval_qpart) AS
+						favicon_needs_check
 				FROM ttrss_feeds WHERE id = '$feed'");
 
 			$registered_title = db_fetch_result($result, 0, "title");
 			$orig_icon_url = db_fetch_result($result, 0, "icon_url");
 			$orig_site_url = db_fetch_result($result, 0, "site_url");
+			$favicon_needs_check = sql_bool_to_bool(db_fetch_result($result, 0,
+				"favicon_needs_check"));
 
 			$owner_uid = db_fetch_result($result, 0, "owner_uid");
 
@@ -441,7 +415,12 @@
 				_debug("update_rss_feed: checking favicon...");
 			}
 
-			check_feed_favicon($site_url, $feed, $link);
+			if ($favicon_needs_check) {
+				check_feed_favicon($site_url, $feed, $link);
+
+				db_query($link, "UPDATE ttrss_feeds SET favicon_last_checked = NOW()
+					WHERE id = '$feed'");
+			}
 
 			if (!$registered_title || $registered_title == "[Unknown]") {
 
@@ -665,7 +644,7 @@
 					$entry_content = $item["content:escaped"];
 
 					if (!$entry_content) $entry_content = $item["content:encoded"];
-					if (!$entry_content) $entry_content = $item["content"]["encoded"];
+					if (!$entry_content && is_array($entry_content)) $entry_content = $item["content"]["encoded"];
 					if (!$entry_content) $entry_content = $item["content"];
 
 					if (is_array($entry_content)) $entry_content = $entry_content[0];
@@ -998,6 +977,27 @@
 							$published = 'true';
 						} else {
 							$published = 'false';
+						}
+
+						// N-grams
+
+						if (DB_TYPE == "pgsql" and defined('_NGRAM_TITLE_DUPLICATE_THRESHOLD')) {
+
+							$result = db_query($link, "SELECT COUNT(*) AS similar FROM
+									ttrss_entries,ttrss_user_entries
+								WHERE ref_id = id AND updated >= NOW() - INTERVAL '7 day'
+									AND similarity(title, '$entry_title') >= "._NGRAM_TITLE_DUPLICATE_THRESHOLD."
+									AND owner_uid = $owner_uid");
+
+							$ngram_similar = db_fetch_result($result, 0, "similar");
+
+							if ($debug_enabled) {
+								_debug("update_rss_feed: N-gram similar results: $ngram_similar");
+							}
+
+							if ($ngram_similar > 0) {
+								$unread = 'false';
+							}
 						}
 
 						$result = db_query($link,
@@ -1362,7 +1362,7 @@
 	}
 
 	function expire_cached_files($debug) {
-		foreach (array("magpie", "simplepie", "images") as $dir) {
+		foreach (array("magpie", "simplepie", "images", "export") as $dir) {
 			$cache_dir = CACHE_DIR . "/$dir";
 
 			if ($debug) _debug("Expiring $cache_dir");

@@ -3,7 +3,7 @@ class Pref_Feeds extends Protected_Handler {
 
 	function csrf_ignore($method) {
 		$csrf_ignored = array("index", "getfeedtree", "add", "editcats", "editfeed",
-			"savefeedorder");
+			"savefeedorder", "uploadicon");
 
 		return array_search($method, $csrf_ignored) !== false;
 	}
@@ -543,6 +543,8 @@ class Pref_Feeds extends Protected_Handler {
 		global $update_methods;
 
 		$feed_ids = db_escape_string($_REQUEST["ids"]);
+
+		print "<div class=\"dialogNotice\">" . __("Enable the options you wish to apply using checkboxes on the right:") . "</div>";
 
 		print "<input dojoType=\"dijit.form.TextBox\" style=\"display : none\" name=\"ids\" value=\"$feed_ids\">";
 		print "<input dojoType=\"dijit.form.TextBox\" style=\"display : none\" name=\"op\" value=\"pref-feeds\">";
@@ -1171,14 +1173,30 @@ class Pref_Feeds extends Protected_Handler {
 			}
 		}
 
-		print "<div dojoType=\"dijit.Toolbar\">
-			<input dojoType=\"dijit.form.ValidationTextBox\" required=\"1\" name=\"newcat\">
+		print "<div dojoType=\"dijit.Toolbar\">";
+
+		print "<div dojoType=\"dijit.form.DropDownButton\">".
+				"<span>" . __('Select')."</span>";
+		print "<div dojoType=\"dijit.Menu\" style=\"display: none;\">";
+		print "<div onclick=\"selectTableRows('prefFeedCatList', 'all')\"
+			dojoType=\"dijit.MenuItem\">".__('All')."</div>";
+		print "<div onclick=\"selectTableRows('prefFeedCatList', 'none')\"
+			dojoType=\"dijit.MenuItem\">".__('None')."</div>";
+		print "</div></div>";
+
+		print "<div style='float : right'>";
+
+		print "<input dojoType=\"dijit.form.ValidationTextBox\" required=\"1\" name=\"newcat\">
 				<button dojoType=\"dijit.form.Button\" onclick=\"dijit.byId('feedCatEditDlg').addCategory()\">".
 					__('Create category')."</button></div>";
 
-		$result = db_query($this->link, "SELECT title,id FROM ttrss_feed_categories
-			WHERE owner_uid = ".$_SESSION["uid"]."
-			ORDER BY title");
+		print "</div>";
+
+		$result = db_query($this->link, "SELECT c.title, c.id,COUNT(f.id) AS count
+			FROM ttrss_feed_categories AS c LEFT JOIN ttrss_feeds AS f ON
+				(f.cat_id = c.id)
+			WHERE c.owner_uid = ".$_SESSION["uid"]."
+			GROUP BY c.title, c.id ORDER BY title");
 
 		if (db_num_rows($result) != 0) {
 
@@ -1196,15 +1214,17 @@ class Pref_Feeds extends Protected_Handler {
 				$cat_id = $line["id"];
 				$this_row_id = "id=\"FCATR-$cat_id\"";
 
-				print "<tr class=\"\" $this_row_id>";
+				print "<tr class=\"placeholder\" $this_row_id>";
 
 				$edit_title = htmlspecialchars($line["title"]);
 
-				print "<td width='5%' align='center'><input
+				print "<td width='5%' align='center'><input id=\"FCATC-$cat_id\"
 					onclick='toggleSelectRow2(this);' dojoType=\"dijit.form.CheckBox\"
 					type=\"checkbox\"></td>";
 
 				print "<td>";
+
+				if ($line['count'] == 0) print '<em>';
 
 				print "<span dojoType=\"dijit.InlineEditBox\"
 					width=\"300px\" autoSave=\"false\"
@@ -1225,6 +1245,12 @@ class Pref_Feeds extends Protected_Handler {
 					</script>
 				</span>";
 
+				if ($line['count'] == 0) print '</em>';
+
+				print "</td>";
+
+				print "<td align='right' class='insensitive'>";
+				echo T_sprintf("%d feeds", $line['count']);
 				print "</td></tr>";
 
 				++$lnum;
@@ -1501,7 +1527,7 @@ class Pref_Feeds extends Protected_Handler {
 
 		$bm_subscribe_url = str_replace('%s', '', add_feed_url());
 
-		$confirm_str = __('Subscribe to %s in Tiny Tiny RSS?');
+		$confirm_str = str_replace("'", "\'", __('Subscribe to %s in Tiny Tiny RSS?'));
 
 		$bm_url = htmlspecialchars("javascript:{if(confirm('$confirm_str'.replace('%s',window.location.href)))window.location.href='$bm_subscribe_url'+window.location.href}");
 

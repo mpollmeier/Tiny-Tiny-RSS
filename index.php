@@ -14,6 +14,19 @@
 	require_once "version.php";
 	require_once "config.php";
 	require_once "db-prefs.php";
+	require_once "lib/Mobile_Detect.php";
+
+	$mobile = new Mobile_Detect();
+
+	if (!$_REQUEST['mobile']) {
+		if ($mobile->isTablet()) {
+			header('Location: digest.php');
+			exit;
+		} else if ($mobile->isMobile()) {
+			header('Location: mobile/index.php');
+			exit;
+		}
+	}
 
 	$link = db_connect(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 
@@ -93,7 +106,7 @@
 </div>
 
 <div id="header">
-	<?php if (!SINGLE_USER_MODE) { ?>
+	<?php if (!SINGLE_USER_MODE && !(ALLOW_REMOTE_USER_AUTH && AUTO_LOGIN)) { ?>
 			<?php echo __('Hello,') ?> <b><?php echo $_SESSION["name"] ?></b> |
 	<?php } ?>
 	<a href="prefs.php"><?php echo __('Preferences') ?></a>
@@ -103,7 +116,7 @@
 				<?php echo __('Comments?') ?></a>
 	<?php } ?>
 
-	<?php if (!SINGLE_USER_MODE) { ?>
+	<?php if (!SINGLE_USER_MODE && !(ALLOW_REMOTE_USER_AUTH && AUTO_LOGIN)) { ?>
 			| <a href="backend.php?op=logout"><?php echo __('Logout') ?></a>
 	<?php } ?>
 

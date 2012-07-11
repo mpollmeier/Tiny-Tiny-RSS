@@ -82,9 +82,11 @@ create table ttrss_feeds (id serial not null primary key,
 	update_on_checksum_change boolean not null default false,
 	strip_images boolean not null default false,
 	pubsub_state integer not null default 0,
+	favicon_last_checked timestamp default null,
 	auth_pass_encrypted boolean not null default false);
 
 create index ttrss_feeds_owner_uid_index on ttrss_feeds(owner_uid);
+create index ttrss_feeds_cat_id_idx on ttrss_feeds(cat_id);
 
 insert into ttrss_feeds (owner_uid, title, feed_url) values
 	(1, 'Tiny Tiny RSS: New Releases', 'http://tt-rss.org/releases.rss');
@@ -229,7 +231,7 @@ create index ttrss_tags_post_int_id_idx on ttrss_tags(post_int_id);
 
 create table ttrss_version (schema_version int not null);
 
-insert into ttrss_version values (91);
+insert into ttrss_version values (92);
 
 create table ttrss_enclosures (id serial not null primary key,
 	content_url text not null,
@@ -265,6 +267,8 @@ create table ttrss_prefs (pref_name varchar(250) not null primary key,
 	help_text text not null default '',
 	access_level integer not null default 0,
 	def_value text not null);
+
+create index ttrss_prefs_pref_name_idx on ttrss_prefs(pref_name);
 
 insert into ttrss_prefs (pref_name,type_id,def_value,short_desc,section_id) values('PURGE_OLD_DAYS', 3, '60', 'Purge old posts after this number of days (0 - disables)',1);
 
@@ -365,6 +369,7 @@ create table ttrss_user_prefs (
 	value text not null);
 
 create index ttrss_user_prefs_owner_uid_index on ttrss_user_prefs(owner_uid);
+create index ttrss_user_prefs_pref_name_idx on ttrss_user_prefs(pref_name);
 -- create index ttrss_user_prefs_value_index on ttrss_user_prefs(value);
 
 create table ttrss_sessions (id varchar(250) unique not null primary key,

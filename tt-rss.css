@@ -359,7 +359,7 @@ table.prefFeedList td.feedSelect {
 	text-align : center;
 }
 
-div.prefFeedCatHolder, div.prefFeedOPMLHolder, div.inactiveFeedHolder {
+div.prefFeedCatHolder, div.prefFeedOPMLHolder, div.inactiveFeedHolder, div.filterTestHolder {
 	height : 300px;
 	overflow : auto;
 	border-width : 0px 1px 1px 1px;
@@ -369,7 +369,7 @@ div.prefFeedCatHolder, div.prefFeedOPMLHolder, div.inactiveFeedHolder {
 	background-color : #ecf4ff;
 }
 
-div.prefFeedOPMLHolder, div.inactiveFeedHolder {
+div.prefFeedOPMLHolder, div.filterTestHolder {
 	border-width : 1px 1px 1px 1px;
 }
 
@@ -1402,4 +1402,9 @@ a.bookmarklet {
 
 td.error { 
 	color : red;
+}
+
+div.dialogNotice {
+	margin-bottom : 5px;
+	color : gray;
 }

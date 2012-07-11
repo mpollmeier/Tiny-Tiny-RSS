@@ -38,7 +38,7 @@ class Pref_Filters extends Protected_Handler {
 
 		print __("Articles matching this filter:");
 
-		print "<div class=\"inactiveFeedHolder\">";
+		print "<div class=\"filterTestHolder\">";
 		print "<table width=\"100%\" cellspacing=\"0\" id=\"prefErrorFeedList\">";
 
 		if ($regexp_valid) {
@@ -105,6 +105,13 @@ class Pref_Filters extends Protected_Handler {
 		$root['name'] = __('Filters');
 		$root['items'] = array();
 
+		$search = $_SESSION["prefs_filter_search"];
+
+		if ($search) $search_qpart = " (LOWER(reg_exp) LIKE LOWER('%$search%')
+			OR LOWER(ttrss_feeds.title) LIKE LOWER('%$search%')
+			OR LOWER(COALESCE(ttrss_feed_categories.title, '".__('Uncategorized')."'))
+				LIKE LOWER('%$search%') AND cat_filter = true) AND ";
+
 		$result = db_query($this->link, "SELECT
 				ttrss_filters.id AS id,reg_exp,
 				ttrss_filter_types.name AS filter_type_name,
@@ -119,7 +126,7 @@ class Pref_Filters extends Protected_Handler {
 				filter_type,
 				ttrss_filter_actions.description AS action_description,
 				ttrss_feeds.title AS feed_title,
-				ttrss_feed_categories.title AS cat_title,
+				COALESCE(ttrss_feed_categories.title, '".__('Uncategorized')."') AS cat_title,
 				ttrss_filter_actions.name AS action_name,
 				ttrss_filters.action_param AS action_param
 			FROM
@@ -129,6 +136,7 @@ class Pref_Filters extends Protected_Handler {
 			WHERE
 				filter_type = ttrss_filter_types.id AND
 				ttrss_filter_actions.id = action_id AND
+				$search_qpart
 				ttrss_filters.owner_uid = ".$_SESSION["uid"]."
 			ORDER by action_description, reg_exp");
 
@@ -394,10 +402,6 @@ class Pref_Filters extends Protected_Handler {
 
 	function editSave() {
 
-		global $memcache;
-
-		if ($memcache) $memcache->flush();
-
 		$savemode = db_escape_string($_REQUEST["savemode"]);
 		$reg_exp = db_escape_string(trim($_REQUEST["reg_exp"]));
 		$filter_type = db_escape_string(trim($_REQUEST["filter_type"]));
@@ -468,8 +472,6 @@ class Pref_Filters extends Protected_Handler {
 
 	function remove() {
 
-		if ($memcache) $memcache->flush();
-
 		$ids = split(",", db_escape_string($_REQUEST["ids"]));
 
 		foreach ($ids as $id) {
@@ -478,8 +480,6 @@ class Pref_Filters extends Protected_Handler {
 	}
 
 	function add() {
-
-		if ($memcache) $memcache->flush();
 
 		$savemode = db_escape_string($_REQUEST["savemode"]);
 		$regexp = db_escape_string(trim($_REQUEST["reg_exp"]));
@@ -527,7 +527,7 @@ class Pref_Filters extends Protected_Handler {
 				VALUES
 					('$regexp', '$filter_type','".$_SESSION["uid"]."',
 					$feed_id, '$action_id', '$action_param', $inverse,
-					'$filter_param', $cat_id, '$cat_filter')");
+					'$filter_param', $cat_id, $cat_filter)");
 
 			if (db_affected_rows($this->link, $result) != 0) {
 				print T_sprintf("Created filter <b>%s</b>", htmlspecialchars($regexp));
@@ -579,6 +579,21 @@ class Pref_Filters extends Protected_Handler {
 		print "<div id=\"pref-filter-wrap\" dojoType=\"dijit.layout.BorderContainer\" gutters=\"false\">";
 		print "<div id=\"pref-filter-header\" dojoType=\"dijit.layout.ContentPane\" region=\"top\">";
 		print "<div id=\"pref-filter-toolbar\" dojoType=\"dijit.Toolbar\">";
+
+		$filter_search = db_escape_string($_REQUEST["search"]);
+
+		if (array_key_exists("search", $_REQUEST)) {
+			$_SESSION["prefs_filter_search"] = $filter_search;
+		} else {
+			$filter_search = $_SESSION["prefs_filter_search"];
+		}
+
+		print "<div style='float : right; padding-right : 4px;'>
+			<input dojoType=\"dijit.form.TextBox\" id=\"filter_search\" size=\"20\" type=\"search\"
+				value=\"$filter_search\">
+			<button dojoType=\"dijit.form.Button\" onclick=\"updateFilterList()\">".
+				__('Search')."</button>
+			</div>";
 
 		print "<div dojoType=\"dijit.form.DropDownButton\">".
 				"<span>" . __('Select')."</span>";

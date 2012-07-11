@@ -360,7 +360,6 @@ class RPC extends Protected_Handler {
 	}
 
 	function setArticleTags() {
-		global $memcache;
 
 		$id = db_escape_string($_REQUEST["id"]);
 
@@ -413,11 +412,6 @@ class RPC extends Protected_Handler {
 		}
 
 		db_query($this->link, "COMMIT");
-
-		if ($memcache) {
-			$obj_id = md5("TAGS:".$_SESSION["uid"].":$id");
-			$memcache->delete($obj_id);
-		}
 
 		$tags = get_article_tags($this->link, $id);
 		$tags_str = format_tags_string($tags, $id);
@@ -646,8 +640,9 @@ class RPC extends Protected_Handler {
 	function catchupFeed() {
 		$feed_id = db_escape_string($_REQUEST['feed_id']);
 		$is_cat = db_escape_string($_REQUEST['is_cat']) == "true";
+		$max_id = (int) db_escape_string($_REQUEST['max_id']);
 
-		catchup_feed($this->link, $feed_id, $is_cat);
+		catchup_feed($this->link, $feed_id, $is_cat, false, $max_id);
 
 		print json_encode(array("message" => "UPDATE_COUNTERS"));
 	}

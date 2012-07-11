@@ -2,8 +2,8 @@
 class Dlg extends Protected_Handler {
 	private $param;
 
-	function before() {
-		if (parent::before()) {
+	function before($method) {
+		if (parent::before($method)) {
 			header("Content-Type: text/xml; charset=utf-8");
 			$this->param = db_escape_string($_REQUEST["param"]);
 			print "<dlg>";
@@ -80,11 +80,24 @@ class Dlg extends Protected_Handler {
 	function editPrefProfiles() {
 		print "<div dojoType=\"dijit.Toolbar\">";
 
+		print "<div dojoType=\"dijit.form.DropDownButton\">".
+				"<span>" . __('Select')."</span>";
+		print "<div dojoType=\"dijit.Menu\" style=\"display: none;\">";
+		print "<div onclick=\"selectTableRows('prefFeedProfileList', 'all')\"
+			dojoType=\"dijit.MenuItem\">".__('All')."</div>";
+		print "<div onclick=\"selectTableRows('prefFeedProfileList', 'none')\"
+			dojoType=\"dijit.MenuItem\">".__('None')."</div>";
+		print "</div></div>";
+
+		print "<div style=\"float : right\">";
+
 		print "<input name=\"newprofile\" dojoType=\"dijit.form.ValidationTextBox\"
 				required=\"1\">
 			<button dojoType=\"dijit.form.Button\"
 			onclick=\"dijit.byId('profileEditDlg').addProfile()\">".
 				__('Create profile')."</button></div>";
+
+		print "</div>";
 
 		$result = db_query($this->link, "SELECT title,id FROM ttrss_settings_profiles
 			WHERE owner_uid = ".$_SESSION["uid"]." ORDER BY title");
@@ -96,9 +109,10 @@ class Dlg extends Protected_Handler {
 		print "<table width=\"100%\" class=\"prefFeedProfileList\"
 			cellspacing=\"0\" id=\"prefFeedProfileList\">";
 
-		print "<tr class=\"\" id=\"FCATR-0\">"; #odd
+		print "<tr class=\"placeholder\" id=\"FCATR-0\">"; #odd
 
 		print "<td width='5%' align='center'><input
+			id='FCATC-0'
 			onclick='toggleSelectRow2(this);'
 			dojoType=\"dijit.form.CheckBox\"
 			type=\"checkbox\"></td>";
@@ -123,12 +137,13 @@ class Dlg extends Protected_Handler {
 			$profile_id = $line["id"];
 			$this_row_id = "id=\"FCATR-$profile_id\"";
 
-			print "<tr class=\"\" $this_row_id>";
+			print "<tr class=\"placeholder\" $this_row_id>";
 
 			$edit_title = htmlspecialchars($line["title"]);
 
 			print "<td width='5%' align='center'><input
 				onclick='toggleSelectRow2(this);'
+				id='FCATC-$profile_id'
 				dojoType=\"dijit.form.CheckBox\"
 				type=\"checkbox\"></td>";
 
@@ -575,7 +590,18 @@ class Dlg extends Protected_Handler {
 			GROUP BY ttrss_feeds.title, ttrss_feeds.id, ttrss_feeds.site_url, ttrss_feeds.feed_url
 			ORDER BY last_article");
 
-		print __("These feeds have not been updated with new content for 3 months (oldest first):");
+		print "<div class=\"dialogNotice\">" . __("These feeds have not been updated with new content for 3 months (oldest first):") . "</div>";
+
+		print "<div dojoType=\"dijit.Toolbar\">";
+		print "<div dojoType=\"dijit.form.DropDownButton\">".
+				"<span>" . __('Select')."</span>";
+		print "<div dojoType=\"dijit.Menu\" style=\"display: none;\">";
+		print "<div onclick=\"selectTableRows('prefInactiveFeedList', 'all')\"
+			dojoType=\"dijit.MenuItem\">".__('All')."</div>";
+		print "<div onclick=\"selectTableRows('prefInactiveFeedList', 'none')\"
+			dojoType=\"dijit.MenuItem\">".__('None')."</div>";
+		print "</div></div>";
+		print "</div>"; #toolbar
 
 		print "<div class=\"inactiveFeedHolder\">";
 
@@ -589,13 +615,15 @@ class Dlg extends Protected_Handler {
 			$feed_id = $line["id"];
 			$this_row_id = "id=\"FUPDD-$feed_id\"";
 
-			print "<tr class=\"\" $this_row_id>";
+			# class needed for selectTableRows()
+			print "<tr class=\"placeholder\" $this_row_id>";
 
 			$edit_title = htmlspecialchars($line["title"]);
 
+			# id needed for selectTableRows()
 			print "<td width='5%' align='center'><input
 				onclick='toggleSelectRow2(this);' dojoType=\"dijit.form.CheckBox\"
-				type=\"checkbox\"></td>";
+				type=\"checkbox\" id=\"FUPDC-$feed_id\"></td>";
 			print "<td>";
 
 			print "<a class=\"visibleLink\" href=\"#\" ".
@@ -628,10 +656,21 @@ class Dlg extends Protected_Handler {
 	}
 
 	function feedsWithErrors() {
-		print __("These feeds have not been updated because of errors:");
+		print "<div class=\"dialogNotice\">" . __("These feeds have not been updated because of errors:") . "</div>";
 
 		$result = db_query($this->link, "SELECT id,title,feed_url,last_error,site_url
 		FROM ttrss_feeds WHERE last_error != '' AND owner_uid = ".$_SESSION["uid"]);
+
+		print "<div dojoType=\"dijit.Toolbar\">";
+		print "<div dojoType=\"dijit.form.DropDownButton\">".
+				"<span>" . __('Select')."</span>";
+		print "<div dojoType=\"dijit.Menu\" style=\"display: none;\">";
+		print "<div onclick=\"selectTableRows('prefErrorFeedList', 'all')\"
+			dojoType=\"dijit.MenuItem\">".__('All')."</div>";
+		print "<div onclick=\"selectTableRows('prefErrorFeedList', 'none')\"
+			dojoType=\"dijit.MenuItem\">".__('None')."</div>";
+		print "</div></div>";
+		print "</div>"; #toolbar
 
 		print "<div class=\"inactiveFeedHolder\">";
 
@@ -645,13 +684,15 @@ class Dlg extends Protected_Handler {
 			$feed_id = $line["id"];
 			$this_row_id = "id=\"FUPDD-$feed_id\"";
 
-			print "<tr class=\"\" $this_row_id>";
+			# class needed for selectTableRows()
+			print "<tr class=\"placeholder\" $this_row_id>";
 
 			$edit_title = htmlspecialchars($line["title"]);
 
+			# id needed for selectTableRows()
 			print "<td width='5%' align='center'><input
 				onclick='toggleSelectRow2(this);' dojoType=\"dijit.form.CheckBox\"
-				type=\"checkbox\"></td>";
+				type=\"checkbox\" id=\"FUPDC-$feed_id\"></td>";
 			print "<td>";
 
 			print "<a class=\"visibleLink\" href=\"#\" ".
@@ -830,7 +871,7 @@ class Dlg extends Protected_Handler {
 
 		$url_path = htmlspecialchars($this->params[2]) . "&key=" . $key;
 
-		print __("You can view this feed as RSS using the following URL:");
+		print "<div class=\"dialogNotice\">" .	__("You can view this feed as RSS using the following URL:") . "</div>";
 
 		print "<div class=\"tagCloudContainer\">";
 		print "<a id='gen_feed_url' href='$url_path' target='_blank'>$url_path</a>";
@@ -883,7 +924,9 @@ class Dlg extends Protected_Handler {
 
 		$value = str_replace("<br/>", "\n", $value);
 
+		print "<div class=\"dialogNotice\">";
 		print T_sprintf("You can override colors, fonts and layout of your currently selected theme with custom CSS declarations here. <a target=\"_blank\" class=\"visibleLink\" href=\"%s\">This file</a> can be used as a baseline.", "tt-rss.css");
+		print "</div>";
 
 		print "<input dojoType=\"dijit.form.TextBox\" style=\"display : none\" name=\"op\" value=\"rpc\">";
 		print "<input dojoType=\"dijit.form.TextBox\" style=\"display : none\" name=\"method\" value=\"setpref\">";
