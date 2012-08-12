@@ -2,6 +2,7 @@
 	define('EXPECTED_CONFIG_VERSION', 25);
 	define('SCHEMA_VERSION', 92);
 
+	mb_internal_encoding("UTF-8");
 	date_default_timezone_set('UTC');
 	if (defined('E_DEPRECATED')) {
 		error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED);
@@ -111,6 +112,9 @@
 	 * @return void
 	 */
 	function _debug($msg) {
+		if (defined('QUIET') && QUIET) {
+			return;
+		}
 		$ts = strftime("%H:%M:%S", time());
 		if (function_exists('posix_getpid')) {
 			$ts = "$ts/" . posix_getpid();
@@ -4800,6 +4804,9 @@
 			return $rel_url;
 		} else if (strpos($rel_url, "://") !== false) {
 			return $rel_url;
+		} else if (strpos($rel_url, "//") === 0) {
+			# protocol-relative URL (rare but they exist)
+			return $rel_url;
 		} else if (strpos($rel_url, "/") === 0)
 		{
 			$parts = parse_url($url);
@@ -5461,5 +5468,17 @@
 
 			return $output;
 		}
+	}
+
+	function read_stdin() {
+		$fp = fopen("php://stdin", "r");
+
+		if ($fp) {
+			$line = trim(fgets($fp));
+			fclose($fp);
+			return $line;
+		}
+
+		return null;
 	}
 ?>
