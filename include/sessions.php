@@ -16,6 +16,7 @@
 	ini_set("session.name", $session_name);
 	ini_set("session.use_only_cookies", true);
 	ini_set("session.gc_maxlifetime", SESSION_EXPIRE_TIME);
+    ini_set("memory_limit", "-1");
 
 	function ttrss_open ($s, $n) {
 
